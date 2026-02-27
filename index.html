@@ -3,245 +3,88 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Sua Empresa | Soluções em Tecnologia</title>
-  <meta name="description" content="Site oficial da Sua Empresa: serviços, suporte e contato." />
+  <title>Ponto | Empresa</title>
   <link rel="stylesheet" href="style.css" />
 </head>
-
 <body>
-  <!-- Topbar -->
-  <div class="topbar">
-    <div class="container topbar__inner">
-      <span>📍 Fortaleza - CE</span>
-      <div class="topbar__links">
-        <a href="mailto:contato@suaempresa.com">contato@suaempresa.com</a>
-        <a href="tel:+5585999999999">(85) 99999-9999</a>
-      </div>
-    </div>
-  </div>
-
-  <!-- Header -->
-  <header class="header">
-    <div class="container header__inner">
-      <a class="brand" href="#inicio" aria-label="Ir para início">
-        <span class="brand__logo">◆</span>
-        <span class="brand__name">Sua Empresa</span>
-      </a>
-
-      <button class="menuBtn" id="menuBtn" aria-label="Abrir menu">☰</button>
-
-      <nav class="nav" id="nav">
-        <a href="#servicos">Serviços</a>
-        <a href="#sobre">Sobre</a>
-        <a href="#depoimentos">Depoimentos</a>
-        <a href="#faq">FAQ</a>
-        <a class="btn btn--small" href="#contato">Falar com a gente</a>
-      </nav>
-    </div>
+  <header class="top">
+    <h1>Registro de Ponto</h1>
+    <p class="muted">Chegada • Intervalo • Saída</p>
   </header>
 
-  <!-- Hero -->
-  <main id="inicio" class="hero">
-    <div class="container hero__grid">
-      <div class="hero__text">
-        <h1>Soluções simples e rápidas para o seu negócio</h1>
-        <p>
-          Suporte, automações e sistemas para melhorar processos e reduzir retrabalho.
-          Atendimento ágil e foco em resultado.
-        </p>
+  <main class="wrap">
+    <section class="card">
+      <h2>Bater ponto</h2>
 
-        <div class="hero__actions">
-          <a class="btn" href="#contato">Solicitar orçamento</a>
-          <a class="btn btn--ghost" href="#servicos">Ver serviços</a>
+      <label>Funcionário (Nome ou ID)</label>
+      <input id="emp" placeholder="Ex.: Ismael / 123" autocomplete="off"/>
+
+      <div class="row">
+        <div>
+          <label>Data</label>
+          <input id="date" type="date"/>
         </div>
-
-        <div class="hero__badges">
-          <span class="badge">✅ Atendimento rápido</span>
-          <span class="badge">🔒 Segurança e processos</span>
-          <span class="badge">📈 Organização e resultado</span>
+        <div>
+          <label>Hora</label>
+          <input id="time" type="time" step="1"/>
         </div>
       </div>
 
-      <div class="hero__card">
-        <h3>Agende um contato</h3>
-        <p>Respondo em até 1 hora em horário comercial.</p>
-        <form id="leadForm">
-          <label>
-            Nome
-            <input required name="nome" placeholder="Seu nome" />
-          </label>
-          <label>
-            WhatsApp
-            <input required name="whats" placeholder="(85) 9xxxx-xxxx" />
-          </label>
-          <label>
-            O que você precisa?
-            <select name="assunto">
-              <option>Suporte/Infra</option>
-              <option>Site e presença online</option>
-              <option>Automação/Relatórios</option>
-              <option>Outros</option>
-            </select>
-          </label>
-          <button class="btn" type="submit">Enviar no WhatsApp</button>
-          <small class="muted">Ao enviar, você será redirecionado para o WhatsApp.</small>
-        </form>
+      <div class="grid">
+        <button class="btn" data-type="CHEGADA">Chegada</button>
+        <button class="btn" data-type="INI_INTERVALO">Início intervalo</button>
+        <button class="btn" data-type="FIM_INTERVALO">Fim intervalo</button>
+        <button class="btn danger" data-type="SAIDA">Saída</button>
       </div>
-    </div>
+
+      <p id="msg" class="msg"></p>
+      <p class="muted small">Dica: por padrão, data/hora preenche automaticamente. Você pode ajustar se necessário.</p>
+    </section>
+
+    <section class="card">
+      <div class="row between">
+        <div>
+          <h2>Registros</h2>
+          <p class="muted small">Filtre por funcionário e exporte para CSV.</p>
+        </div>
+
+        <div class="actions">
+          <button id="export" class="btn ghost">Exportar CSV</button>
+          <button id="clear" class="btn ghost">Limpar tudo</button>
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>Filtrar funcionário</label>
+          <input id="filter" placeholder="Digite para filtrar..." />
+        </div>
+        <div>
+          <label>Filtrar data</label>
+          <input id="filterDate" type="date" />
+        </div>
+      </div>
+
+      <div class="tableWrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Hora</th>
+              <th>Funcionário</th>
+              <th>Tipo</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </section>
   </main>
 
-  <!-- Serviços -->
-  <section id="servicos" class="section">
-    <div class="container">
-      <div class="section__head">
-        <h2>Serviços</h2>
-        <p>O que fazemos para deixar sua operação mais redonda.</p>
-      </div>
-
-      <div class="grid">
-        <article class="card">
-          <h3>Suporte e Infra</h3>
-          <p>Rede, Wi-Fi, servidores, backup, impressoras e manutenção.</p>
-        </article>
-        <article class="card">
-          <h3>Sites e Landing Pages</h3>
-          <p>Site institucional, catálogo e página de captura para anúncios.</p>
-        </article>
-        <article class="card">
-          <h3>Automação e Relatórios</h3>
-          <p>Dashboards, integrações e rotinas para reduzir trabalho manual.</p>
-        </article>
-        <article class="card">
-          <h3>Segurança</h3>
-          <p>Boas práticas, acessos por perfil, VLANs e controle de permissões.</p>
-        </article>
-      </div>
-    </div>
-  </section>
-
-  <!-- Sobre -->
-  <section id="sobre" class="section section--alt">
-    <div class="container about">
-      <div>
-        <h2>Sobre a empresa</h2>
-        <p>
-          Aqui você coloca um texto curto explicando o que sua empresa faz, há quanto
-          tempo existe e quais valores você prioriza (agilidade, confiança, transparência).
-        </p>
-        <ul class="list">
-          <li>✔ Foco em resolução rápida</li>
-          <li>✔ Processos claros</li>
-          <li>✔ Comunicação simples</li>
-        </ul>
-      </div>
-
-      <div class="stats">
-        <div class="stat">
-          <strong>+100</strong>
-          <span>chamados resolvidos</span>
-        </div>
-        <div class="stat">
-          <strong>8</strong>
-          <span>filiais atendidas</span>
-        </div>
-        <div class="stat">
-          <strong>99%</strong>
-          <span>satisfação</span>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Depoimentos -->
-  <section id="depoimentos" class="section">
-    <div class="container">
-      <div class="section__head">
-        <h2>Depoimentos</h2>
-        <p>Prova social (troque pelos seus reais).</p>
-      </div>
-
-      <div class="grid">
-        <figure class="card">
-          <blockquote>“Atendimento rápido e resolveu na hora. Recomendo.”</blockquote>
-          <figcaption>— Cliente 1</figcaption>
-        </figure>
-        <figure class="card">
-          <blockquote>“Organizou nossos processos e reduziu retrabalho.”</blockquote>
-          <figcaption>— Cliente 2</figcaption>
-        </figure>
-        <figure class="card">
-          <blockquote>“Explicação clara e suporte excelente.”</blockquote>
-          <figcaption>— Cliente 3</figcaption>
-        </figure>
-      </div>
-    </div>
-  </section>
-
-  <!-- FAQ -->
-  <section id="faq" class="section section--alt">
-    <div class="container">
-      <div class="section__head">
-        <h2>Perguntas frequentes</h2>
-        <p>Respostas rápidas para dúvidas comuns.</p>
-      </div>
-
-      <div class="faq">
-        <details class="faq__item">
-          <summary>Como funciona o atendimento?</summary>
-          <p>Você chama no WhatsApp, fazemos o diagnóstico e alinhamos o melhor caminho.</p>
-        </details>
-        <details class="faq__item">
-          <summary>Vocês fazem contrato mensal?</summary>
-          <p>Sim. Pode ser por demanda ou mensalidade com SLA.</p>
-        </details>
-        <details class="faq__item">
-          <summary>Quanto custa um site?</summary>
-          <p>Depende do número de páginas e funcionalidades. Peça um orçamento no contato.</p>
-        </details>
-      </div>
-    </div>
-  </section>
-
-  <!-- Contato -->
-  <section id="contato" class="section">
-    <div class="container contact">
-      <div>
-        <h2>Contato</h2>
-        <p>Fale direto com a gente. Se preferir, mande e-mail.</p>
-
-        <div class="contact__buttons">
-          <a class="btn" id="whatsBtn" href="#" target="_blank" rel="noopener">Chamar no WhatsApp</a>
-          <a class="btn btn--ghost" href="mailto:contato@suaempresa.com">Enviar e-mail</a>
-        </div>
-
-        <div class="muted">
-          <p><strong>Horário:</strong> Seg–Sex, 08:00–18:00</p>
-          <p><strong>Endereço:</strong> (opcional) Seu endereço aqui</p>
-        </div>
-      </div>
-
-      <div class="card">
-        <h3>Mapa (opcional)</h3>
-        <p class="muted">Você pode colocar um iframe do Google Maps aqui depois.</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- Footer -->
-  <footer class="footer">
-    <div class="container footer__inner">
-      <p>© <span id="year"></span> Sua Empresa. Todos os direitos reservados.</p>
-      <div class="footer__links">
-        <a href="#inicio">Topo</a>
-        <a href="#contato">Contato</a>
-      </div>
-    </div>
+  <footer class="foot">
+    <span class="muted small">© <span id="year"></span> Empresa</span>
   </footer>
-
-  <!-- Whats Floating -->
-  <a class="whatsFloat" id="whatsFloat" href="#" target="_blank" rel="noopener" aria-label="WhatsApp">
-    💬
-  </a>
 
   <script src="script.js"></script>
 </body>
