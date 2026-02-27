@@ -347,3 +347,18 @@ const lines = [header.join(",")].concat(
 }
 
 render();
+render();
+
+async function testConnection() {
+  const { data, error } = await supabase
+    .from("pontos")
+    .select("*");
+
+  if (error) {
+    console.log("Erro:", error);
+  } else {
+    console.log("Conectado! Dados:", data);
+  }
+}
+
+testConnection();
