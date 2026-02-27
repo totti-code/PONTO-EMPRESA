@@ -326,15 +326,21 @@ if(exportBtn){
   exportBtn.onclick = ()=>{
     const rows = loadJSON(STORAGE_KEY, []);
     if(!rows.length) return;
-    const header = ["data","empId","funcionario","chegada","iniIntervalo","fimIntervalo","saida"];
-    const lines = [header.join(",")].concat(
-      rows.map(r => header.map(k => `"${r[k]||""}"`).join(","))
-    );
+    const header = ["data","empId","funcionario","chegada","iniIntervalo","fimIntervalo","saida","horasTrabalhadas"];
+
+const lines = [header.join(",")].concat(
+  rows.map(r => {
+    const horas = secondsToHHMM(calcHorasTrabalhadas(r)) || "";
+    const obj = { ...r, horasTrabalhadas: horas };
+
+    return header.map(k => `"${String(obj[k] ?? "").replaceAll('"','""')}"`).join(",");
+  })
+);
     const blob = new Blob([lines.join("\n")], {type:"text/csv"});
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "ponto.csv";
+    a.download = `ponto_${nowDate()}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
