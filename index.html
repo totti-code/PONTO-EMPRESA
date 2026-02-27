@@ -7,28 +7,37 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+
   <header class="top">
-    <h1>Registro de Ponto</h1>
-    <p class="muted">Chegada • Intervalo • Saída</p>
+    <div class="topInner">
+      <div>
+        <h1>Registro de Ponto</h1>
+        <p class="muted">Chegada • Intervalo • Saída</p>
+      </div>
+
+      <nav class="menu">
+        <a class="menuLink active" href="index.html">Registrar ponto</a>
+        <a class="menuLink" href="admin.html">Admin</a>
+      </nav>
+    </div>
   </header>
 
   <main class="wrap">
 
-    <!-- BATER PONTO -->
     <section class="card">
       <h2>Bater ponto</h2>
 
       <label>Funcionário (Número/ID)</label>
-      <input id="emp" type="number" placeholder="Ex.: 1" autocomplete="off" inputmode="numeric" />
+      <input id="emp" type="number" placeholder="Ex.: 1" autocomplete="off" inputmode="numeric"/>
 
       <div class="row">
         <div>
           <label>Data</label>
-          <input id="date" type="date" />
+          <input id="date" type="date"/>
         </div>
         <div>
           <label>Hora</label>
-          <input id="time" type="time" step="1" />
+          <input id="time" type="time" step="1"/>
         </div>
       </div>
 
@@ -40,12 +49,9 @@
       </div>
 
       <p id="msg" class="msg"></p>
-      <p class="muted small">
-        Dica: data/hora usam o relógio do computador. Somente o admin pode ajustar.
-      </p>
+      <p class="muted small">Data/hora usam o relógio do computador. Somente o admin pode ajustar.</p>
     </section>
 
-    <!-- REGISTROS -->
     <section class="card">
       <div class="row between">
         <div>
@@ -86,34 +92,6 @@
           <tbody id="tbody"></tbody>
         </table>
       </div>
-    </section>
-
-    <!-- ADMIN -->
-    <section class="card">
-      <h2>Admin</h2>
-
-      <div class="row">
-        <input id="adminPass" type="password" placeholder="Senha do admin" />
-        <button id="adminLogin" class="btn">Entrar</button>
-        <button id="adminLogout" class="btn ghost" style="display:none;">Sair</button>
-        <span id="adminStatus" class="muted small"></span>
-      </div>
-
-      <hr style="opacity:.25; margin: 14px 0;" />
-
-      <h3 style="margin: 0 0 8px;">Cadastro de Funcionários (ID → Nome)</h3>
-
-      <div class="row">
-        <input id="adminId" type="number" placeholder="Número (ex: 1)" inputmode="numeric" />
-        <input id="adminNome" type="text" placeholder="Nome (ex: Ismael)" />
-        <button id="adminAdd" class="btn">Cadastrar</button>
-      </div>
-
-      <div id="adminList" class="adminList"></div>
-
-      <p class="muted small" style="margin-top:10px;">
-        Somente o admin pode cadastrar funcionários, ajustar data/hora e excluir registros.
-      </p>
     </section>
 
   </main>
