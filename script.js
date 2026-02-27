@@ -204,6 +204,7 @@ function render(){
   if(!tbody) return;
 
   const rows = loadJSON(STORAGE_KEY, []);
+
   tbody.innerHTML = rows.map(r=>`
     <tr>
       <td>${r.data}</td>
@@ -212,12 +213,19 @@ function render(){
       <td>${r.iniIntervalo || "-"}</td>
       <td>${r.fimIntervalo || "-"}</td>
       <td>${r.saida || "-"}</td>
-      <td>${isAdmin() ? `<button data-del="${r.id}" class="iconBtn">Excluir</button>` : ""}</td>
+      <td>
+        ${isAdmin() ? `
+          <button data-edit="${r.id}" class="iconBtn">Editar</button>
+          <button data-del="${r.id}" class="iconBtn">Excluir</button>
+        ` : ""}
+      </td>
     </tr>
   `).join("");
 }
 
 document.addEventListener("click", e=>{
+
+  // ===== EXCLUIR =====
   const del = e.target.closest("button[data-del]");
   if(del && isAdmin()){
     let rows = loadJSON(STORAGE_KEY, []);
@@ -225,6 +233,45 @@ document.addEventListener("click", e=>{
     saveJSON(STORAGE_KEY, rows);
     render();
   }
+
+  // ===== EDITAR =====
+  const edit = e.target.closest("button[data-edit]");
+  if(edit && isAdmin()){
+
+    const rowId = edit.dataset.edit;
+    const rows = loadJSON(STORAGE_KEY, []);
+    const row = rows.find(r => r.id === rowId);
+    if(!row) return;
+
+    const campo = prompt(
+      "Qual deseja editar?\n1=Chegada\n2=Início intervalo\n3=Fim intervalo\n4=Saída"
+    );
+
+    const map = {
+      "1": "chegada",
+      "2": "iniIntervalo",
+      "3": "fimIntervalo",
+      "4": "saida"
+    };
+
+    const key = map[campo];
+    if(!key) return;
+
+    const atual = row[key] || "";
+    const novo = prompt("Novo horário (HH:MM:SS)", atual);
+    if(novo === null) return;
+
+    if(!/^\d{2}:\d{2}(:\d{2})?$/.test(novo.trim())){
+      alert("Formato inválido. Use HH:MM ou HH:MM:SS");
+      return;
+    }
+
+    row[key] = novo.trim().length === 5 ? novo.trim() + ":00" : novo.trim();
+
+    saveJSON(STORAGE_KEY, rows);
+    render();
+  }
+
 });
 
 if(clearBtn){
