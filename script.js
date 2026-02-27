@@ -1,36 +1,15 @@
 const $ = (id) => document.getElementById(id);
 
-// ====== ELEMENTOS (ponto) ======
-const emp = $("emp");         // ID numérico
-const dateEl = $("date");
-const timeEl = $("time");
-const msg = $("msg");
-const tbody = $("tbody");
-const filter = $("filter");
-const filterDate = $("filterDate");
-const exportBtn = $("export");
-const clearBtn = $("clear");
-$("year").textContent = new Date().getFullYear();
+// Detecta página atual
+const isAdminPage = location.pathname.includes("admin");
 
-// ====== ELEMENTOS (admin) - VOCÊ VAI CRIAR NO HTML ======
-const adminPass = $("adminPass");
-const adminLoginBtn = $("adminLogin");
-const adminLogoutBtn = $("adminLogout");
-const adminStatus = $("adminStatus");
-
-const adminId = $("adminId");
-const adminNome = $("adminNome");
-const adminAddBtn = $("adminAdd");
-const adminList = $("adminList");
-
-// ====== STORAGE ======
-const STORAGE_KEY = "ponto_registros_v4";
+// ===== STORAGE =====
+const STORAGE_KEY = "ponto_registros_v5";
 const STAFF_KEY   = "ponto_staff_v1";
 const ADMIN_KEY   = "ponto_admin_session_v1";
+const ADMIN_PASSWORD = "1234"; // 🔐 ALTERE AQUI SUA SENHA
 
-// ⚠️ SENHA ADMIN (front-end). Troque para a sua.
-const ADMIN_PASSWORD = "1234";
-
+// ===== UTILS =====
 function pad(n){ return String(n).padStart(2,"0"); }
 function nowDate(){
   const d = new Date();
@@ -40,10 +19,6 @@ function nowTime(){
   const d = new Date();
   return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
-function nowDateTime(){
-  return { data: nowDate(), hora: nowTime() };
-}
-
 function loadJSON(key, fallback){
   try { return JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback)); }
   catch { return fallback; }
@@ -51,311 +26,233 @@ function loadJSON(key, fallback){
 function saveJSON(key, val){
   localStorage.setItem(key, JSON.stringify(val));
 }
-
-function setMsg(text, ok=true){
-  msg.style.color = ok ? "#22c55e" : "#ef4444";
-  msg.textContent = text;
-  if(text) setTimeout(()=> msg.textContent="", 2500);
-}
-
-function escapeHtml(str){
-  return String(str ?? "")
-    .replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")
-    .replaceAll('"',"&quot;").replaceAll("'","&#039;");
-}
-
 function makeId(){
-  return crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random();
+  return crypto.randomUUID ? crypto.randomUUID() : Date.now() + Math.random();
 }
-
-function normalizeId(value){
-  return String(value ?? "").trim();
-}
-
-// ====== ADMIN SESSION ======
 function isAdmin(){
   return loadJSON(ADMIN_KEY, { ok:false }).ok === true;
 }
-
-function setAdminMode(on){
+function setAdmin(on){
   saveJSON(ADMIN_KEY, { ok: !!on });
-
-  // trava/libera campos de data/hora
-  // usuário comum: sempre travado; admin: liberado
-  dateEl.readOnly = !on;
-  timeEl.readOnly = !on;
-  dateEl.disabled = !on;
-  timeEl.disabled = !on;
-
-  // trava input admin (cadastro)
-  adminId.disabled = !on;
-  adminNome.disabled = !on;
-  adminAddBtn.disabled = !on;
-  adminPass.disabled = on; // quando loga, trava senha
-
-  adminLoginBtn.style.display = on ? "none" : "inline-flex";
-  adminLogoutBtn.style.display = on ? "inline-flex" : "none";
-
-  adminStatus.textContent = on ? "Modo Admin: ATIVO" : "Modo Admin: DESATIVADO";
 }
 
-function adminLogin(){
-  const pass = (adminPass.value || "").trim();
-  if(pass !== ADMIN_PASSWORD){
-    setMsg("Senha de admin incorreta.", false);
-    return;
-  }
-  setAdminMode(true);
-  setMsg("Admin logado. Ajustes liberados.", true);
-}
+// ===== ELEMENTOS (SE EXISTIREM) =====
+const emp = $("emp");
+const dateEl = $("date");
+const timeEl = $("time");
+const tbody = $("tbody");
+const msg = $("msg");
+const filter = $("filter");
+const filterDate = $("filterDate");
+const exportBtn = $("export");
+const clearBtn = $("clear");
+const yearEl = $("year");
 
-function adminLogout(){
-  setAdminMode(false);
-  adminPass.value = "";
-  setMsg("Admin saiu. Ajustes bloqueados.", true);
-}
+if(yearEl) yearEl.textContent = new Date().getFullYear();
 
-// ====== CADASTRO (ADMIN) ======
+// ===== STAFF =====
 function loadStaff(){ return loadJSON(STAFF_KEY, {}); }
 function saveStaff(map){ saveJSON(STAFF_KEY, map); }
 
-function addStaff(){
-  if(!isAdmin()) return setMsg("Apenas admin pode cadastrar.", false);
+// ===== REGISTRO DE PONTO (INDEX.HTML) =====
+if(emp){
 
-  const id = normalizeId(adminId.value);
-  const nome = (adminNome.value || "").trim();
-
-  if(!id) return setMsg("Admin: informe o número (ID).", false);
-  if(!/^\d+$/.test(id)) return setMsg("Admin: o ID deve conter apenas números.", false);
-  if(!nome) return setMsg("Admin: informe o nome.", false);
-
-  const staff = loadStaff();
-
-  if(staff[id] && staff[id].toLowerCase() !== nome.toLowerCase()){
-    const ok = confirm(`O ID ${id} já está cadastrado como "${staff[id]}". Deseja alterar para "${nome}"?`);
-    if(!ok) return;
+  function fieldByTipo(tipo){
+    return {
+      CHEGADA: "chegada",
+      INI_INTERVALO: "iniIntervalo",
+      FIM_INTERVALO: "fimIntervalo",
+      SAIDA: "saida"
+    }[tipo];
   }
 
-  staff[id] = nome;
-  saveStaff(staff);
+  function addRegistro(tipo){
+    const id = String(emp.value || "").trim();
+    if(!id) return showMsg("Informe seu número (ID).", false);
 
-  adminId.value = "";
-  adminNome.value = "";
-  renderStaff();
-  setMsg(`Admin: cadastrado ID ${id} → ${nome}`, true);
-}
+    const staff = loadStaff();
+    const nome = staff[id];
+    if(!nome) return showMsg("ID não cadastrado. Procure o admin.", false);
 
-function removeStaff(id){
-  if(!isAdmin()) return setMsg("Apenas admin pode remover cadastro.", false);
+    const data = nowDate();
+    const hora = nowTime();
 
-  const staff = loadStaff();
-  if(!staff[id]) return;
+    const rows = loadJSON(STORAGE_KEY, []);
+    let row = rows.find(r => r.empId === id && r.data === data);
 
-  const ok = confirm(`Remover cadastro do ID ${id} (${staff[id]})?`);
-  if(!ok) return;
+    if(!row){
+      row = {
+        id: makeId(),
+        data,
+        empId: id,
+        funcionario: nome,
+        chegada: "",
+        iniIntervalo: "",
+        fimIntervalo: "",
+        saida: ""
+      };
+      rows.unshift(row);
+    }
 
-  delete staff[id];
-  saveStaff(staff);
-  renderStaff();
-  setMsg(`Admin: removido ID ${id}`, true);
-}
+    const campo = fieldByTipo(tipo);
+    if(row[campo]){
+      return showMsg("Esse horário já foi registrado.", false);
+    }
 
-function renderStaff(){
-  const staff = loadStaff();
-  const ids = Object.keys(staff).sort((a,b)=> Number(a)-Number(b));
+    row[campo] = hora;
 
-  adminList.innerHTML = ids.map(id => `
-    <div class="staffRow">
-      <div class="staffInfo">
-        <b>#${escapeHtml(id)}</b> — ${escapeHtml(staff[id])}
-      </div>
-      <button class="iconBtn" data-staff-del="${escapeHtml(id)}" ${isAdmin() ? "" : "disabled"}>Excluir</button>
-    </div>
-  `).join("") || `<div class="muted">Nenhum funcionário cadastrado.</div>`;
-}
-
-// ====== REGISTROS (1 por dia) ======
-function loadRows(){ return loadJSON(STORAGE_KEY, []); }
-function saveRows(rows){ saveJSON(STORAGE_KEY, rows); }
-
-function fieldByTipo(tipo){
-  const map = {
-    CHEGADA: "chegada",
-    INI_INTERVALO: "iniIntervalo",
-    FIM_INTERVALO: "fimIntervalo",
-    SAIDA: "saida"
-  };
-  return map[tipo] || null;
-}
-function prettyCampo(c){
-  const map = {
-    chegada: "Chegada",
-    iniIntervalo: "Início intervalo",
-    fimIntervalo: "Fim intervalo",
-    saida: "Saída"
-  };
-  return map[c] || c;
-}
-
-function addRegistro(tipo){
-  const id = normalizeId(emp.value);
-  if(!id) return setMsg("Informe seu número (ID).", false);
-  if(!/^\d+$/.test(id)) return setMsg("O ID deve conter apenas números.", false);
-
-  const staff = loadStaff();
-  const nome = staff[id];
-  if(!nome){
-    return setMsg(`ID ${id} não cadastrado. Procure o admin.`, false);
+    saveJSON(STORAGE_KEY, rows);
+    render();
+    showMsg("Registrado com sucesso!", true);
   }
 
-  const campo = fieldByTipo(tipo);
-  if(!campo) return setMsg("Tipo inválido.", false);
-
-  // ✅ data/hora:
-  // - usuário comum: SEMPRE pega do computador
-  // - admin: pode usar o que estiver no input (ajustado)
-  let data, hora;
-  if(isAdmin()){
-    data = dateEl.value || nowDate();
-    hora = timeEl.value || nowTime();
-  } else {
-    const dt = nowDateTime();
-    data = dt.data;
-    hora = dt.hora;
+  function showMsg(text, ok){
+    if(!msg) return;
+    msg.style.color = ok ? "#22c55e" : "#ef4444";
+    msg.textContent = text;
+    setTimeout(()=> msg.textContent="", 2500);
   }
 
-  const rows = loadRows();
-  let row = rows.find(r => r.empId === id && r.data === data);
-
-  if(!row){
-    row = {
-      id: makeId(),
-      data,
-      empId: id,
-      funcionario: nome,
-      chegada: "",
-      iniIntervalo: "",
-      fimIntervalo: "",
-      saida: ""
-    };
-    rows.unshift(row);
-  } else {
-    row.funcionario = nome;
-  }
-
-  if(row[campo]){
-    return setMsg(`Já existe ${prettyCampo(campo)} para ${nome} (#${id}) em ${data}: ${row[campo]}`, false);
-  }
-
-  row[campo] = hora;
-
-  saveRows(rows);
-  setMsg(`Registrado: ${prettyCampo(campo)} — ${nome} (#${id}) (${data} ${hora})`, true);
-  render();
-}
-
-function removeRegistro(rowId){
-  if(!isAdmin()) return setMsg("Apenas admin pode excluir registros.", false);
-
-  const rows = loadRows().filter(r => r.id !== rowId);
-  saveRows(rows);
-  render();
-  setMsg("Registro excluído.", true);
-}
-
-function getFiltered(rows){
-  const f = (filter.value || "").trim().toLowerCase();
-  const d = (filterDate.value || "").trim();
-
-  return rows.filter(r => {
-    const nome = String(r.funcionario || "").toLowerCase();
-    const id = String(r.empId || "").toLowerCase();
-    const okName = !f || nome.includes(f) || id.includes(f);
-    const okDate = !d || r.data === d;
-    return okName && okDate;
+  document.addEventListener("click", e=>{
+    const btn = e.target.closest("button[data-type]");
+    if(btn) addRegistro(btn.dataset.type);
   });
+
+  setInterval(()=>{
+    if(dateEl) dateEl.value = nowDate();
+    if(timeEl) timeEl.value = nowTime();
+  },1000);
 }
 
-function render(){
-  const rows = getFiltered(loadRows());
+// ===== ADMIN PAGE =====
+if(isAdminPage){
 
-  tbody.innerHTML = rows.map(r => `
+  const adminPass = $("adminPass");
+  const adminLogin = $("adminLogin");
+  const adminLogout = $("adminLogout");
+  const adminStatus = $("adminStatus");
+
+  const adminId = $("adminId");
+  const adminNome = $("adminNome");
+  const adminAdd = $("adminAdd");
+  const adminList = $("adminList");
+
+  function updateAdminUI(){
+    if(!adminStatus) return;
+    if(isAdmin()){
+      adminStatus.textContent = "Admin logado";
+      adminLogin.style.display = "none";
+      adminLogout.style.display = "inline-flex";
+    } else {
+      adminStatus.textContent = "Admin não logado";
+      adminLogin.style.display = "inline-flex";
+      adminLogout.style.display = "none";
+    }
+  }
+
+  if(adminLogin){
+    adminLogin.onclick = ()=>{
+      if(adminPass.value === ADMIN_PASSWORD){
+        setAdmin(true);
+        updateAdminUI();
+      } else {
+        alert("Senha incorreta");
+      }
+    };
+  }
+
+  if(adminLogout){
+    adminLogout.onclick = ()=>{
+      setAdmin(false);
+      updateAdminUI();
+    };
+  }
+
+  if(adminAdd){
+    adminAdd.onclick = ()=>{
+      if(!isAdmin()) return alert("Faça login como admin.");
+      const id = adminId.value.trim();
+      const nome = adminNome.value.trim();
+      if(!id || !nome) return;
+      const staff = loadStaff();
+      staff[id] = nome;
+      saveStaff(staff);
+      adminId.value = "";
+      adminNome.value = "";
+      renderStaff();
+    };
+  }
+
+  function renderStaff(){
+    if(!adminList) return;
+    const staff = loadStaff();
+    adminList.innerHTML = Object.keys(staff).map(id=>`
+      <div class="staffRow">
+        <div class="staffInfo">
+          <b>#${id}</b> — ${staff[id]}
+        </div>
+      </div>
+    `).join("");
+  }
+
+  updateAdminUI();
+  renderStaff();
+}
+
+// ===== RENDER TABELA (AMBAS) =====
+function render(){
+  if(!tbody) return;
+
+  const rows = loadJSON(STORAGE_KEY, []);
+  tbody.innerHTML = rows.map(r=>`
     <tr>
       <td>${r.data}</td>
-      <td>#${escapeHtml(r.empId)} — ${escapeHtml(r.funcionario)}</td>
+      <td>#${r.empId} — ${r.funcionario}</td>
       <td>${r.chegada || "-"}</td>
       <td>${r.iniIntervalo || "-"}</td>
       <td>${r.fimIntervalo || "-"}</td>
       <td>${r.saida || "-"}</td>
-      <td><button class="iconBtn" data-del="${r.id}" ${isAdmin() ? "" : "disabled"}>Excluir</button></td>
+      <td>${isAdmin() ? `<button data-del="${r.id}" class="iconBtn">Excluir</button>` : ""}</td>
     </tr>
-  `).join("") || `<tr><td colspan="7" class="muted">Nenhum registro.</td></tr>`;
+  `).join("");
 }
 
-function exportCSV(){
-  const rows = getFiltered(loadRows());
-  if(!rows.length) return setMsg("Nada para exportar com esses filtros.", false);
-
-  const header = ["data","empId","funcionario","chegada","iniIntervalo","fimIntervalo","saida"];
-  const lines = [header.join(",")].concat(
-    rows.map(r => header.map(k => `"${String(r[k] ?? "").replaceAll('"','""')}"`).join(","))
-  );
-
-  const blob = new Blob([lines.join("\n")], {type:"text/csv;charset=utf-8;"});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `ponto_${nowDate()}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-
-  setMsg("CSV exportado!", true);
-}
-
-// ====== INIT ======
-function syncClockForUsers(){
-  // usuário comum: força sempre o relógio do PC no input (só display)
-  if(!isAdmin()){
-    dateEl.value = nowDate();
-    timeEl.value = nowTime();
-  }
-}
-
-setInterval(syncClockForUsers, 1000);
-filter.addEventListener("input", render);
-filterDate.addEventListener("change", render);
-exportBtn.addEventListener("click", exportCSV);
-
-clearBtn.addEventListener("click", () => {
-  if(!isAdmin()) return setMsg("Apenas admin pode apagar tudo.", false);
-
-  const ok = confirm("Tem certeza que deseja APAGAR todos os registros deste navegador?");
-  if(!ok) return;
-  localStorage.removeItem(STORAGE_KEY);
-  render();
-  setMsg("Registros apagados.", true);
-});
-
-document.addEventListener("click", (e) => {
-  const btn = e.target.closest("button[data-type]");
-  if(btn) addRegistro(btn.dataset.type);
-
+document.addEventListener("click", e=>{
   const del = e.target.closest("button[data-del]");
-  if(del) removeRegistro(del.dataset.del);
-
-  const staffDel = e.target.closest("button[data-staff-del]");
-  if(staffDel) removeStaff(staffDel.dataset.staffDel);
+  if(del && isAdmin()){
+    let rows = loadJSON(STORAGE_KEY, []);
+    rows = rows.filter(r=>r.id !== del.dataset.del);
+    saveJSON(STORAGE_KEY, rows);
+    render();
+  }
 });
 
-// admin buttons
-adminLoginBtn.addEventListener("click", adminLogin);
-adminLogoutBtn.addEventListener("click", adminLogout);
-adminAddBtn.addEventListener("click", addStaff);
+if(clearBtn){
+  clearBtn.onclick = ()=>{
+    if(!isAdmin()) return alert("Somente admin pode limpar.");
+    if(confirm("Apagar todos os registros?")){
+      localStorage.removeItem(STORAGE_KEY);
+      render();
+    }
+  };
+}
 
-// aplica modo admin salvo (se tiver)
-setAdminMode(isAdmin());
-syncClockForUsers();
-renderStaff();
+if(exportBtn){
+  exportBtn.onclick = ()=>{
+    const rows = loadJSON(STORAGE_KEY, []);
+    if(!rows.length) return;
+    const header = ["data","empId","funcionario","chegada","iniIntervalo","fimIntervalo","saida"];
+    const lines = [header.join(",")].concat(
+      rows.map(r => header.map(k => `"${r[k]||""}"`).join(","))
+    );
+    const blob = new Blob([lines.join("\n")], {type:"text/csv"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "ponto.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+}
+
 render();
