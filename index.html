@@ -105,7 +105,7 @@
   const supabaseUrl = "https://gnmwpudkvhsmtxmypuyt.supabase.co";
   const supabaseKey = "sb_publishable_ewFZG81p4bVSO3Koyhp_LQ_xI4bXPTc";
 
-  const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+  window.supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
 </script>
 
 <script src="script.js"></script>
