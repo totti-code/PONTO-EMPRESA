@@ -350,9 +350,9 @@ render();
 render();
 
 async function testConnection() {
-  const { data, error } = await supabase
-    .from("pontos")
-    .select("*");
+   const { data, error } = await supabaseClient
+   .from("pontos")
+   .select("*");
 
   if (error) {
     console.log("Erro:", error);
