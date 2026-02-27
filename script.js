@@ -350,15 +350,10 @@ render();
 render();
 
 async function testConnection() {
-   const { data, error } = await supabaseClient
-   .from("pontos")
-   .select("*");
+  const { data, error } = await window.supabaseClient
+    .from("pontos")
+    .select("*");
 
-  if (error) {
-    console.log("Erro:", error);
-  } else {
-    console.log("Conectado! Dados:", data);
-  }
+  console.log({ data, error });
 }
-
 testConnection();
