@@ -29,6 +29,44 @@ function saveJSON(key, val){
 function makeId(){
   return crypto.randomUUID ? crypto.randomUUID() : Date.now() + Math.random();
 }
+function makeId(){
+  return crypto.randomUUID ? crypto.randomUUID() : Date.now() + Math.random();
+}
+
+/* ===== CALCULO DE HORAS ===== */
+
+function timeToSeconds(t){
+  if(!t) return null;
+  const parts = t.split(":").map(Number);
+  if(parts.length < 2) return null;
+  const [hh, mm, ss = 0] = parts;
+  return hh*3600 + mm*60 + ss;
+}
+
+function secondsToHHMM(total){
+  if(total == null) return "";
+  const hh = Math.floor(total / 3600);
+  const mm = Math.floor((total % 3600) / 60);
+  return `${String(hh).padStart(2,"0")}:${String(mm).padStart(2,"0")}`;
+}
+
+function diffSeconds(start, end){
+  const s = timeToSeconds(start);
+  const e = timeToSeconds(end);
+  if(s == null || e == null) return null;
+  let d = e - s;
+  if(d < 0) d += 86400;
+  return d;
+}
+
+function calcHorasTrabalhadas(r){
+  const total = diffSeconds(r.chegada, r.saida);
+  if(total == null) return null;
+
+  const intervalo = diffSeconds(r.iniIntervalo, r.fimIntervalo);
+  return total - (intervalo || 0);
+}
+
 function isAdmin(){
   return loadJSON(ADMIN_KEY, { ok:false }).ok === true;
 }
