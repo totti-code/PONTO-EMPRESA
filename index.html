@@ -99,7 +99,15 @@
   <footer class="foot">
     <span class="muted small">© <span id="year"></span> Empresa</span>
   </footer>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-  <script src="script.js"></script>
+<script>
+  const supabaseUrl = "https://gnmwpudkvhsmtxmypuyt.supabase.co";
+  const supabaseKey = "sb_publishable_ewFZG81p4bVSO3Koyhp_LQ_xI4bXPTc";
+
+  const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+</script>
+
+<script src="script.js"></script>
 </body>
 </html>
