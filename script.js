@@ -128,14 +128,14 @@ async function render(){
 }
 
 // ===== REGISTRO DE PONTO (INDEX) =====
-if(emp){
+if (emp) {
 
-  async function addRegistro(tipo){
-    try{
+  async function addRegistro(tipo) {
+    try {
       const id = String(emp.value || "").trim();
-      if(!id) return showMsg("Informe seu número (ID).", false);
+      if (!id) return showMsg("Informe seu número (ID).", false);
 
-      if(!window.supabaseClient){
+      if (!window.supabaseClient) {
         return showMsg("Supabase não inicializado.", false);
       }
 
@@ -146,11 +146,11 @@ if(emp){
         .eq("emp_id", id)
         .maybeSingle();
 
-      if(errFunc){
+      if (errFunc) {
         console.error(errFunc);
         return showMsg("Erro ao consultar funcionários.", false);
       }
-      if(!func?.nome){
+      if (!func?.nome) {
         return showMsg("ID não cadastrado. Procure o admin.", false);
       }
 
@@ -164,7 +164,7 @@ if(emp){
         SAIDA: "saida",
       })[tipo];
 
-      if(!coluna) return showMsg("Tipo inválido.", false);
+      if (!coluna) return showMsg("Tipo inválido.", false);
 
       // registro do dia
       const { data: existente, error: errSel } = await window.supabaseClient
@@ -174,19 +174,19 @@ if(emp){
         .eq("data", data)
         .maybeSingle();
 
-      if(errSel){
+      if (errSel) {
         console.error(errSel);
         return showMsg("Erro ao buscar registro do dia.", false);
       }
 
       // bloqueia duplicado
-      if(existente && existente[coluna]){
+      if (existente && existente[coluna]) {
         return showMsg("Esse horário já foi registrado.", false);
       }
 
       // update ou insert
       let result;
-      if(existente){
+      if (existente) {
         result = await window.supabaseClient
           .from("pontos")
           .update({ [coluna]: hora })
@@ -197,7 +197,7 @@ if(emp){
           .insert([{ emp_id: id, data, [coluna]: hora }]);
       }
 
-      if(result.error){
+      if (result.error) {
         console.error(result.error);
         return showMsg("Erro ao salvar no banco.", false);
       }
@@ -205,27 +205,28 @@ if(emp){
       showMsg("Registrado com sucesso!", true);
       await render();
 
-    } catch(e){
+    } catch (e) {
       console.error(e);
       showMsg("Erro inesperado ao registrar.", false);
     }
   }
 
-  // deixa acessível no console se quiser testar
+  // ✅ DEIXA GLOBAL (resolve o 'addRegistro is not defined')
   window.addRegistro = addRegistro;
 
-  // clique nos botões data-type
-  document.addEventListener("click", (e)=>{
+  // clique nos botões
+  document.addEventListener("click", (e) => {
     const btn = e.target.closest("button[data-type]");
-    if(btn) addRegistro(btn.dataset.type);
+    if (btn) window.addRegistro(btn.dataset.type);
   });
 
   // relógio
-  setInterval(()=>{
-    if(dateEl) dateEl.value = nowDate();
-    if(timeEl) timeEl.value = nowTime();
+  setInterval(() => {
+    if (dateEl) dateEl.value = nowDate();
+    if (timeEl) timeEl.value = nowTime();
   }, 1000);
-}
+
+} // ✅ FECHA O if(emp) AQUI
 
 // ===== ADMIN PAGE =====
 if(isAdminPage){
