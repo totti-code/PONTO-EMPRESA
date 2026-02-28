@@ -143,3 +143,63 @@ button:disabled{
   .staffRow{ flex-direction:column; align-items:stretch; }
   .staffRow .iconBtn{ width:100%; }
 }
+/* ===== POLISH / UX ===== */
+
+/* Foco visível (teclado) */
+:where(a, button, input, .menuLink, .iconBtn):focus-visible{
+  outline: 3px solid rgba(34,197,94,.55);
+  outline-offset: 2px;
+}
+
+/* Suaviza cliques */
+.btn, .menuLink, .iconBtn{
+  transition: transform .06s ease, filter .15s ease, background .15s ease, border-color .15s ease;
+}
+
+/* Hover/Active */
+.btn:hover{ filter: brightness(1.05); }
+.btn:active{ transform: translateY(1px); }
+
+.btn.ghost:hover{ background: rgba(255,255,255,.09); }
+.menuLink:hover{ background: rgba(255,255,255,.07); }
+
+.iconBtn:hover{ background: rgba(255,255,255,.06); }
+
+/* Cards com glass leve */
+.card{
+  backdrop-filter: blur(6px);
+}
+
+/* Inputs: melhora leitura */
+input::placeholder{ color: rgba(184,192,230,.65); }
+input:hover{ border-color: rgba(255,255,255,.18); }
+
+/* Tabela mais bonita */
+.tableWrap{
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,.18) transparent;
+}
+.tableWrap::-webkit-scrollbar{ height: 10px; }
+.tableWrap::-webkit-scrollbar-thumb{
+  background: rgba(255,255,255,.16);
+  border-radius: 999px;
+}
+.tableWrap::-webkit-scrollbar-track{ background: transparent; }
+
+/* Cabeçalho fixo */
+thead th{
+  position: sticky;
+  top: 0;
+  background: rgba(16,26,48,.95);
+  backdrop-filter: blur(6px);
+  z-index: 1;
+}
+
+/* Zebra + hover na linha */
+tbody tr:nth-child(even){ background: rgba(255,255,255,.02); }
+tbody tr:hover{ background: rgba(34,197,94,.06); }
+
+/* Ajuste do footer */
+.foot{
+  color: rgba(184,192,230,.9);
+}
