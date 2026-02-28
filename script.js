@@ -31,13 +31,28 @@ function nowTime(){
   const d = new Date();
   return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
+function norm(s){
+  return String(s ?? "").toLowerCase().trim();
+}
+// aceita "dd/mm/aaaa" ou "yyyy-mm-dd"
+function anyDateToISO(v){
+  const s = String(v ?? "").trim();
+  if(!s) return "";
+  // yyyy-mm-dd
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  // dd/mm/aaaa
+  const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if(!m) return "";
+  const [, dd, mm, yyyy] = m;
+  return `${yyyy}-${mm}-${dd}`;
+}
 
 // ===== CALCULO DE HORAS =====
 function timeToSeconds(t){
   if(!t) return null;
 
   // remove timezone se existir (ex: 08:00:00+00)
-  t = t.split("+")[0];
+  t = String(t).split("+")[0];
 
   const parts = t.split(":").map(Number);
   if(parts.length < 2) return null;
@@ -69,6 +84,10 @@ function calcHorasTrabalhadas(r){
   return total - (intervalo || 0);
 }
 
+function formatHora(h){
+  return h ? String(h).split("+")[0] : "-";
+}
+
 // ===== ELEMENTOS (SE EXISTIREM) =====
 const emp = $("emp");
 const dateEl = $("date");
@@ -77,6 +96,10 @@ const tbody = $("tbody");
 const msg = $("msg");
 const exportBtn = $("export");
 const yearEl = $("year");
+
+// filtros (existem na index.html)
+const filter = $("filter");
+const filterDate = $("filterDate");
 
 if(yearEl) yearEl.textContent = new Date().getFullYear();
 
@@ -116,20 +139,36 @@ async function render(){
   const nomes = {};
   (funcs || []).forEach(f => (nomes[f.emp_id] = f.nome));
 
-  tbody.innerHTML = (data || []).map(r => {
+  // ===== aplica filtros =====
+  const q = norm(filter?.value);
+  const dateISO = anyDateToISO(filterDate?.value);
+
+  const rows = (data || []).filter(r => {
+    const nome = nomes[r.emp_id] ?? "";
+    const okText = !q || norm(r.emp_id).includes(q) || norm(nome).includes(q);
+    const okDate = !dateISO || r.data === dateISO;
+    return okText && okDate;
+  });
+
+  tbody.innerHTML = rows.map(r => {
     const horas = secondsToHHMM(calcHorasTrabalhadas(r)) || "-";
     return `
       <tr>
         <td>${r.data ?? "-"}</td>
         <td>#${r.emp_id} — ${nomes[r.emp_id] ?? "-"}</td>
-        <<td>${r.chegada ? r.chegada.split("+")[0] : "-"}</td>
-        <td>${r.ini_intervalo ? r.ini_intervalo.split("+")[0] : "-"}</td>
-        <td>${r.fim_intervalo ? r.fim_intervalo.split("+")[0] : "-"}</td>
-        <td>${r.saida ? r.saida.split("+")[0] : "-"}</td>
+        <td>${formatHora(r.chegada)}</td>
+        <td>${formatHora(r.ini_intervalo)}</td>
+        <td>${formatHora(r.fim_intervalo)}</td>
+        <td>${formatHora(r.saida)}</td>
         <td>${horas}</td>
       </tr>
     `;
   }).join("");
+
+  // se ficar vazio, mostra linha amigável
+  if(!rows.length){
+    tbody.innerHTML = `<tr><td colspan="7">Nenhum registro encontrado.</td></tr>`;
+  }
 }
 
 // ===== REGISTRO DE PONTO (INDEX) =====
@@ -216,7 +255,7 @@ if (emp) {
     }
   }
 
-  // ✅ DEIXA GLOBAL (resolve o 'addRegistro is not defined')
+  // ✅ global
   window.addRegistro = addRegistro;
 
   // clique nos botões
@@ -230,8 +269,7 @@ if (emp) {
     if (dateEl) dateEl.value = nowDate();
     if (timeEl) timeEl.value = nowTime();
   }, 1000);
-
-} // ✅ FECHA O if(emp) AQUI
+}
 
 // ===== ADMIN PAGE =====
 if(isAdminPage){
@@ -366,6 +404,15 @@ if(exportBtn){
     a.click();
     URL.revokeObjectURL(url);
   };
+}
+
+// ===== LISTENERS DOS FILTROS =====
+if(filter){
+  filter.addEventListener("input", () => render());
+}
+if(filterDate){
+  filterDate.addEventListener("input", () => render());
+  filterDate.addEventListener("change", () => render());
 }
 
 // ===== START =====
