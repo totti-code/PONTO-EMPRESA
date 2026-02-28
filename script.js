@@ -44,6 +44,28 @@ function anyDateToISO(v){
   const [, dd, mm, yyyy] = m;
   return `${yyyy}-${mm}-${dd}`;
 }
+function isoToBR(iso){ // yyyy-mm-dd -> dd/mm/yyyy
+  if(!iso) return "";
+  const s = String(iso);
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if(!m) return s;
+  return `${m[3]}/${m[2]}/${m[1]}`;
+}
+
+function hhmm(t){ // "HH:MM:SS" -> "HH:MM"
+  if(!t) return "";
+  const s = String(t).split("+")[0];
+  const parts = s.split(":");
+  if(parts.length < 2) return s;
+  return `${parts[0].padStart(2,"0")}:${parts[1].padStart(2,"0")}`;
+}
+
+function secondsToHHMMStrict(total){
+  if(total == null || total < 0) return "";
+  const hh = Math.floor(total / 3600);
+  const mm = Math.floor((total % 3600) / 60);
+  return `${String(hh).padStart(2,"0")}:${String(mm).padStart(2,"0")}`;
+}
 
 // ===== CALCULO DE HORAS =====
 function timeToSeconds(t){
@@ -147,10 +169,10 @@ async function render(){
       <tr>
         <td>${r.data ?? "-"}</td>
         <td>#${r.emp_id} — ${nome}</td>
-        <td>${formatHora(r.chegada)}</td>
-        <td>${formatHora(r.ini_intervalo)}</td>
-        <td>${formatHora(r.fim_intervalo)}</td>
-        <td>${formatHora(r.saida)}</td>
+        <td>${hhmm(r.chegada) || "-"}</td>
+        <td>${hhmm(r.ini_intervalo) || "-"}</td>
+        <td>${hhmm(r.fim_intervalo) || "-"}</td>
+        <td>${hhmm(r.saida) || "-"}</td>
         <td>${horas}</td>
         <td></td>
       </tr>
@@ -360,64 +382,60 @@ if(isAdminPage){
 }
 
 // ===== EXPORT CSV (SUPABASE) =====
-if(exportBtn){
-  exportBtn.onclick = async ()=>{
-    if(!window.supabaseClient) return alert("Supabase não inicializado.");
+exportBtn.onclick = async ()=>{
+  if(!window.supabaseClient) return alert("Supabase não inicializado.");
 
-    // ✅ traz o nome no mesmo select (JOIN)
-    const { data, error } = await window.supabaseClient
-      .from("pontos")
-      .select("data, emp_id, chegada, ini_intervalo, fim_intervalo, saida, funcionarios(nome)")
-      .order("data", { ascending: false });
+  const { data, error } = await window.supabaseClient
+    .from("pontos")
+    .select("data, emp_id, chegada, ini_intervalo, fim_intervalo, saida, funcionarios(nome)")
+    .order("data", { ascending: false });
 
-    if(error){
-      console.error(error);
-      return alert("Erro ao exportar.");
-    }
-    if(!data?.length) return;
+  if(error){
+    console.error(error);
+    return alert("Erro ao exportar.");
+  }
+  if(!data?.length) return alert("Sem dados para exportar.");
 
-    const header = [
-      "Data",
-      "Funcionário",
-      "ID",
-      "Chegada",
-      "Início intervalo",
-      "Fim intervalo",
-      "Saída",
-      "Horas Trabalhadas"
-    ];
+  const header = [
+    "Data",
+    "Funcionário",
+    "ID",
+    "Chegada",
+    "Início intervalo",
+    "Fim intervalo",
+    "Saída",
+    "Horas Trabalhadas"
+  ];
 
-    const separator = ";";
+  const separator = ";";
 
-    const lines = [header.join(separator)].concat(
-      data.map(r => {
-        const horas = secondsToHHMM(calcHorasTrabalhadas(r)) || "";
-        return [
-          r.data ?? "",
-          r.funcionarios?.nome ?? "",
-          r.emp_id ?? "",
-          r.chegada ?? "",
-          r.ini_intervalo ?? "",
-          r.fim_intervalo ?? "",
-          r.saida ?? "",
-          horas
-        ].join(separator);
-      })
-    );
+  const lines = [header.join(separator)].concat(
+    data.map(r => {
+      const horas = secondsToHHMMStrict(calcHorasTrabalhadas(r)) || "";
+      return [
+        isoToBR(r.data ?? ""),                 // dd/mm/aaaa
+        (r.funcionarios?.nome ?? ""),          // nome
+        (r.emp_id ?? ""),                      // id
+        hhmm(r.chegada) || "",                 // HH:MM
+        hhmm(r.ini_intervalo) || "",
+        hhmm(r.fim_intervalo) || "",
+        hhmm(r.saida) || "",
+        horas                                  // HH:MM
+      ].join(separator);
+    })
+  );
 
-    const blob = new Blob(["\ufeff" + lines.join("\n")], {
-      type: "text/csv;charset=utf-8;"
-    });
+  const blob = new Blob(["\ufeff" + lines.join("\n")], {
+    type: "text/csv;charset=utf-8;"
+  });
 
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `ponto_${nowDate()}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-}
-
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `ponto_${nowDate()}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+};
 // ===== LISTENERS DOS FILTROS =====
 if(filter){
   filter.addEventListener("input", () => render());
