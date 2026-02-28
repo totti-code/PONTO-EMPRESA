@@ -10,7 +10,7 @@
 
   <header class="top">
     <div class="topInner">
-      <div>
+      <div class="topTitle">
         <h1>Registro de Ponto</h1>
         <p class="muted">Chegada • Intervalo • Saída</p>
       </div>
@@ -22,7 +22,7 @@
     </div>
   </header>
 
-  <main class="wrap">
+  <main class="wrap compact">
 
     <section class="card">
       <h2>Bater ponto</h2>
@@ -41,7 +41,7 @@
         </div>
       </div>
 
-      <div class="grid">
+      <div class="grid grid-compact">
         <button class="btn" data-type="CHEGADA">Chegada</button>
         <button class="btn" data-type="INI_INTERVALO">Início intervalo</button>
         <button class="btn" data-type="FIM_INTERVALO">Fim intervalo</button>
@@ -52,62 +52,19 @@
       <p class="muted small">Data/hora usam o relógio do computador. Somente o admin pode ajustar.</p>
     </section>
 
-    <section class="card">
-      <div class="row between">
-        <div>
-          <h2>Registros</h2>
-          <p class="muted small">Filtre por nome ou ID e exporte para CSV.</p>
-        </div>
-
-        <div class="actions">
-          <button id="export" class="btn ghost">Exportar CSV</button>
-          <button id="clear" class="btn ghost">Limpar tudo</button>
-        </div>
-      </div>
-
-      <div class="row">
-        <div>
-          <label>Filtrar (Nome ou ID)</label>
-          <input id="filter" placeholder="Digite para filtrar..." />
-        </div>
-        <div>
-          <label>Filtrar data</label>
-          <input id="filterDate" type="date" />
-        </div>
-      </div>
-
-      <div class="tableWrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Data</th>
-              <th>Funcionário</th>
-              <th>Chegada</th>
-              <th>Início intervalo</th>
-              <th>Fim intervalo</th>
-              <th>Saída</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody id="tbody"></tbody>
-        </table>
-      </div>
-    </section>
-
   </main>
 
   <footer class="foot">
     <span class="muted small">© <span id="year"></span> Empresa</span>
   </footer>
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    const supabaseUrl = "https://gnmwpudkvhsmtxmypuyt.supabase.co";
+    const supabaseKey = "sb_publishable_ewFZG81p4bVSO3Koyhp_LQ_xI4bXPTc";
+    window.supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
+  </script>
 
-<script>
-  const supabaseUrl = "https://gnmwpudkvhsmtxmypuyt.supabase.co";
-  const supabaseKey = "sb_publishable_ewFZG81p4bVSO3Koyhp_LQ_xI4bXPTc";
-
-  window.supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
-</script>
-
-<script src="script.js"></script>
+  <script src="script.js"></script>
 </body>
 </html>
