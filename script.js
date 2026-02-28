@@ -105,73 +105,75 @@ if(emp){
   }
 
   async function addRegistro(tipo){
-    const id = String(emp.value || "").trim();
-    if(!id) return showMsg("Informe seu número (ID).", false);
+  const id = String(emp.value || "").trim();
+  if(!id) return showMsg("Informe seu número (ID).", false);
 
-    const { data: funcs, error: errFunc } = await window.supabaseClient
-  .from("funcionarios")
-  .select("emp_id, nome")
-  .eq("emp_id", id)
-  .limit(1);
+  // valida funcionário
+  const { data: funcs, error: errFunc } = await window.supabaseClient
+    .from("funcionarios")
+    .select("emp_id, nome")
+    .eq("emp_id", id)
+    .maybeSingle();
 
-if (errFunc) {
-  console.error(errFunc);
-  return showMsg("Erro ao consultar funcionários no Supabase.", false);
-}
+  if (errFunc) {
+    console.error(errFunc);
+    return showMsg("Erro ao consultar funcionários no Supabase.", false);
+  }
+  if (!funcs?.nome) return showMsg("ID não cadastrado no Supabase. Procure o admin.", false);
 
-const nome = funcs?.[0]?.nome;
-if (!nome) return showMsg("ID não cadastrado no Supabase. Procure o admin.", false);
+  // data/hora
+  const data = nowDate();      // (se quiser 100% local BR, ok)
+  const hora = nowTime();
 
-    const data = nowDate();
-    const hora = nowTime();
+  // coluna do banco
+  const coluna = ({
+    CHEGADA: "chegada",
+    INI_INTERVALO: "ini_intervalo",
+    FIM_INTERVALO: "fim_intervalo",
+    SAIDA: "saida",
+  })[tipo];
 
-// Define coluna correta
-const coluna = ({
-  CHEGADA: "chegada",
-  INI_INTERVALO: "ini_intervalo",
-  FIM_INTERVALO: "fim_intervalo",
-  SAIDA: "saida",
-})[tipo];
+  if(!coluna) return showMsg("Tipo inválido.", false);
 
-// Verifica se já existe registro no Supabase para o dia
-const { data: existente, error: errSel } = await window.supabaseClient
-  .from("pontos")
-  .select("*")
-  .eq("emp_id", id)
-  .eq("data", data)
-  .maybeSingle();
-
-if (errSel) {
-  console.error(errSel);
-  return showMsg("Erro ao buscar registro do dia.", false);
-}
-
-if (existente?.[coluna]) {
-  return showMsg("Esse horário já foi registrado.", false);
-}
-
-let result;
-
-if (existente) {
-  // Atualiza registro existente
-  result = await window.supabaseClient
+  // pega registro do dia
+  const { data: existente, error: errSel } = await window.supabaseClient
     .from("pontos")
-    .update({ [coluna]: hora })
-    .eq("id", existente.id);
-} else {
-  // Cria novo registro
-  result = await window.supabaseClient
-    .from("pontos")
-    .insert([{ emp_id: id, data, [coluna]: hora }]);
-}
+    .select("id, chegada, ini_intervalo, fim_intervalo, saida")
+    .eq("emp_id", id)
+    .eq("data", data)
+    .maybeSingle();
 
-if (result.error) {
-  console.error(result.error);
-  return showMsg("Erro ao salvar no banco.", false);
-}
+  if (errSel) {
+    console.error(errSel);
+    return showMsg("Erro ao buscar registro do dia.", false);
+  }
 
-showMsg("Registrado com sucesso!", true);
-await render();
+  // bloqueia duplicado
+  if (existente && existente[coluna]) {
+    return showMsg("Esse horário já foi registrado.", false);
+  }
+
+  // update ou insert
+  let result;
+  if (existente) {
+    result = await window.supabaseClient
+      .from("pontos")
+      .update({ [coluna]: hora })
+      .eq("id", existente.id);
+  } else {
+    result = await window.supabaseClient
+      .from("pontos")
+      .insert([{ emp_id: id, data, [coluna]: hora }]);
+  }
+
+  if (result.error) {
+    console.error(result.error);
+    return showMsg("Erro ao salvar no banco.", false);
+  }
+
+  showMsg("Registrado com sucesso!", true);
+  await render();
+}
     
     showMsg("Registrado com sucesso!", true);
   }
