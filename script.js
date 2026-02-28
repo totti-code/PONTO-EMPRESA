@@ -122,10 +122,10 @@ async function render(){
       <tr>
         <td>${r.data ?? "-"}</td>
         <td>#${r.emp_id} — ${nomes[r.emp_id] ?? "-"}</td>
-        <td>${r.chegada ?? "-"}</td>
-        <td>${r.ini_intervalo ?? "-"}</td>
-        <td>${r.fim_intervalo ?? "-"}</td>
-        <td>${r.saida ?? "-"}</td>
+        <<td>${r.chegada ? r.chegada.split("+")[0] : "-"}</td>
+        <td>${r.ini_intervalo ? r.ini_intervalo.split("+")[0] : "-"}</td>
+        <td>${r.fim_intervalo ? r.fim_intervalo.split("+")[0] : "-"}</td>
+        <td>${r.saida ? r.saida.split("+")[0] : "-"}</td>
         <td>${horas}</td>
       </tr>
     `;
