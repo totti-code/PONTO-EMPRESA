@@ -384,13 +384,15 @@ if(exportBtn){
 
     const header = ["data","emp_id","chegada","ini_intervalo","fim_intervalo","saida","horas_trabalhadas"];
 
-    const lines = [header.join(",")].concat(
-      data.map(r => {
-        const horas = secondsToHHMM(calcHorasTrabalhadas(r)) || "";
-        const obj = { ...r, horas_trabalhadas: horas };
-        return header.map(k => `"${String(obj[k] ?? "").replaceAll('"','""')}"`).join(",");
-      })
-    );
+    const separator = ";";
+
+const lines = [header.join(separator)].concat(
+  data.map(r => {
+    const horas = secondsToHHMM(calcHorasTrabalhadas(r)) || "";
+    const obj = { ...r, horas_trabalhadas: horas };
+    return header.map(k => String(obj[k] ?? "")).join(separator);
+  })
+);
 
     const blob = new Blob([lines.join("\n")], {type:"text/csv"});
     const url = URL.createObjectURL(blob);
