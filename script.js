@@ -35,8 +35,13 @@ function nowTime(){
 // ===== CALCULO DE HORAS =====
 function timeToSeconds(t){
   if(!t) return null;
+
+  // remove timezone se existir (ex: 08:00:00+00)
+  t = t.split("+")[0];
+
   const parts = t.split(":").map(Number);
   if(parts.length < 2) return null;
+
   const [hh, mm, ss = 0] = parts;
   return hh*3600 + mm*60 + ss;
 }
