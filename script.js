@@ -120,9 +120,10 @@ async function render(){
 
   const dateISO = anyDateToISO(filterDate?.value) || nowDate();
 
+  // ✅ JOIN traz o nome automaticamente
   const { data, error } = await window.supabaseClient
     .from("pontos")
-    .select("id, emp_id, data, chegada, ini_intervalo, fim_intervalo, saida")
+    .select("id, emp_id, data, chegada, ini_intervalo, fim_intervalo, saida, funcionarios(nome)")
     .eq("data", dateISO)
     .order("emp_id", { ascending: true });
 
@@ -132,28 +133,20 @@ async function render(){
     return;
   }
 
-  const { data: funcs, error: errFuncs } = await window.supabaseClient
-    .from("funcionarios")
-    .select("emp_id, nome");
-
-  if(errFuncs) console.error(errFuncs);
-
-  const nomes = {};
-  (funcs || []).forEach(f => (nomes[f.emp_id] = f.nome));
-
   const q = norm(filter?.value);
 
   const rows = (data || []).filter(r => {
-    const nome = nomes[r.emp_id] ?? "";
+    const nome = r.funcionarios?.nome ?? "";
     return !q || norm(r.emp_id).includes(q) || norm(nome).includes(q);
   });
 
   tbody.innerHTML = rows.map(r => {
     const horas = secondsToHHMM(calcHorasTrabalhadas(r)) || "-";
+    const nome = r.funcionarios?.nome ?? "-";
     return `
       <tr>
         <td>${r.data ?? "-"}</td>
-        <td>#${r.emp_id} — ${nomes[r.emp_id] ?? "-"}</td>
+        <td>#${r.emp_id} — ${nome}</td>
         <td>${formatHora(r.chegada)}</td>
         <td>${formatHora(r.ini_intervalo)}</td>
         <td>${formatHora(r.fim_intervalo)}</td>
@@ -371,9 +364,10 @@ if(exportBtn){
   exportBtn.onclick = async ()=>{
     if(!window.supabaseClient) return alert("Supabase não inicializado.");
 
+    // ✅ traz o nome no mesmo select (JOIN)
     const { data, error } = await window.supabaseClient
       .from("pontos")
-      .select("data, emp_id, chegada, ini_intervalo, fim_intervalo, saida")
+      .select("data, emp_id, chegada, ini_intervalo, fim_intervalo, saida, funcionarios(nome)")
       .order("data", { ascending: false });
 
     if(error){
@@ -382,21 +376,39 @@ if(exportBtn){
     }
     if(!data?.length) return;
 
-    const header = ["data","emp_id","chegada","ini_intervalo","fim_intervalo","saida","horas_trabalhadas"];
+    const header = [
+      "Data",
+      "Funcionário",
+      "ID",
+      "Chegada",
+      "Início intervalo",
+      "Fim intervalo",
+      "Saída",
+      "Horas Trabalhadas"
+    ];
 
     const separator = ";";
 
-const lines = [header.join(separator)].concat(
-  data.map(r => {
-    const horas = secondsToHHMM(calcHorasTrabalhadas(r)) || "";
-    const obj = { ...r, horas_trabalhadas: horas };
-    return header.map(k => String(obj[k] ?? "")).join(separator);
-  })
-);
+    const lines = [header.join(separator)].concat(
+      data.map(r => {
+        const horas = secondsToHHMM(calcHorasTrabalhadas(r)) || "";
+        return [
+          r.data ?? "",
+          r.funcionarios?.nome ?? "",
+          r.emp_id ?? "",
+          r.chegada ?? "",
+          r.ini_intervalo ?? "",
+          r.fim_intervalo ?? "",
+          r.saida ?? "",
+          horas
+        ].join(separator);
+      })
+    );
 
     const blob = new Blob(["\ufeff" + lines.join("\n")], {
-  type: "text/csv;charset=utf-8;"
-});
+      type: "text/csv;charset=utf-8;"
+    });
+
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
