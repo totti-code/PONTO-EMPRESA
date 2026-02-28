@@ -104,7 +104,7 @@ if(emp){
     }[tipo];
   }
 
-  function addRegistro(tipo){
+  async function addRegistro(tipo){
     const id = String(emp.value || "").trim();
     if(!id) return showMsg("Informe seu número (ID).", false);
 
