@@ -21,9 +21,9 @@ body{
   align-items:flex-end;
   justify-content:space-between;
   gap:14px;
-  padding:28px 0 8px;
+  padding:22px 0 8px; /* mais compacto */
 }
-.top h1{margin:0; font-size:28px}
+.top h1{margin:0; font-size:28px; line-height:1.1}
 .menu{
   display:flex;
   gap:10px;
@@ -48,29 +48,64 @@ body{
   border-color:transparent;
 }
 
-.wrap{width:min(980px,92%); margin:0 auto; padding:18px 0 40px; display:grid; gap:14px}
+.wrap{
+  width:min(980px,92%);
+  margin:0 auto;
+  padding:14px 0 34px; /* mais compacto */
+  display:grid;
+  gap:14px;
+}
+
+/* ===== MODO COMPACTO (usado no index) ===== */
+.wrap.compact{ padding-top:10px; }
+.wrap.compact .card{ padding:14px; }
+.wrap.compact h2{ margin-bottom:8px; }
+.wrap.compact label{ margin-top:8px; }
+.wrap.compact .grid{ margin-top:10px; }
+.wrap.compact .msg{ margin-top:8px; }
+
 .card{
   background:rgba(16,26,48,.86);
   border:1px solid var(--line);
   border-radius:var(--r);
   padding:16px;
   box-shadow:var(--shadow);
+  backdrop-filter: blur(6px);
 }
 h2{margin:0 0 10px}
 label{display:block; margin:10px 0 6px; color:var(--muted); font-size:14px}
+
 input{
-  width:100%; padding:12px; border-radius:14px;
+  width:100%;
+  padding:12px;
+  border-radius:14px;
   border:1px solid var(--line);
   background:rgba(255,255,255,.04);
-  color:var(--text); outline:none;
+  color:var(--text);
+  outline:none;
 }
 .row{display:grid; grid-template-columns:1fr 1fr; gap:12px}
 .row.between{grid-template-columns:1fr auto; align-items:center}
 .actions{display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end}
-.grid{display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-top:12px}
+
+.grid{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:10px;
+  margin-top:12px;
+}
+
+/* grid compacto (classe opcional) */
+.grid.grid-compact{ gap:10px; }
+
 .btn{
-  padding:12px; border-radius:14px; border:none;
-  background:var(--ok); color:#05200f; font-weight:800; cursor:pointer;
+  padding:12px;
+  border-radius:14px;
+  border:none;
+  background:var(--ok);
+  color:#05200f;
+  font-weight:800;
+  cursor:pointer;
 }
 .btn.ghost{
   background:rgba(255,255,255,.06);
@@ -78,19 +113,32 @@ input{
   border:1px solid var(--line);
 }
 .btn.danger{background:var(--danger); color:#1b0606}
+
 .muted{color:var(--muted)}
 .small{font-size:12px}
 .msg{margin:10px 0 0; min-height:20px}
-.tableWrap{overflow:auto; border-radius:14px; border:1px solid var(--line); margin-top:10px}
+
+.tableWrap{
+  overflow:auto;
+  border-radius:14px;
+  border:1px solid var(--line);
+  margin-top:10px;
+}
 table{width:100%; border-collapse:collapse; min-width:860px}
 th,td{padding:10px 12px; border-bottom:1px solid var(--line); text-align:left}
 th{color:var(--muted); font-size:13px}
 td{font-size:14px}
+
 .iconBtn{
-  background:transparent; border:1px solid var(--line); color:var(--text);
-  border-radius:12px; padding:8px 10px; cursor:pointer;
+  background:transparent;
+  border:1px solid var(--line);
+  color:var(--text);
+  border-radius:12px;
+  padding:8px 10px;
+  cursor:pointer;
 }
-.foot{padding:16px 0 26px; text-align:center}
+
+.foot{padding:16px 0 26px; text-align:center; color: rgba(184,192,230,.9);}
 
 /* ===== Admin UI ===== */
 .adminList{
@@ -133,6 +181,7 @@ button:disabled{
   cursor:not-allowed;
 }
 
+/* ===== RESPONSIVO TABLET (já tinha, mantive) ===== */
 @media (max-width:900px){
   .grid{grid-template-columns:repeat(2,1fr)}
   .row{grid-template-columns:1fr}
@@ -143,6 +192,60 @@ button:disabled{
   .staffRow{ flex-direction:column; align-items:stretch; }
   .staffRow .iconBtn{ width:100%; }
 }
+
+/* ===== RESPONSIVO CELULAR (novo e mais forte) ===== */
+@media (max-width:560px){
+  .topInner{
+    width:min(980px,94%);
+    padding:16px 0 6px;
+    gap:10px;
+  }
+
+  .top h1{ font-size:20px; }
+  .muted{ line-height:1.2; }
+
+  .menu{
+    width:100%;
+    justify-content:space-between;
+  }
+  .menuLink{
+    flex:1;
+    text-align:center;
+    padding:10px 10px;
+    font-weight:800;
+  }
+
+  .wrap{
+    width:min(980px,94%);
+    padding:10px 0 24px;
+    gap:12px;
+  }
+
+  .card{
+    padding:12px;
+    border-radius:14px;
+  }
+
+  label{ font-size:13px; margin:8px 0 6px; }
+  input{ padding:11px; border-radius:12px; }
+
+  /* Botões do ponto: 2x2 no celular */
+  .grid{
+    grid-template-columns:repeat(2,1fr);
+    gap:10px;
+  }
+
+  .btn{
+    padding:12px 10px;
+    border-radius:12px;
+    font-size:14px;
+  }
+
+  /* Admin: filtros em coluna já fica ok pelo 900px, mas melhora espaçamento */
+  .actions{ gap:8px; }
+  .btn.ghost{ width:100%; }
+}
+
 /* ===== POLISH / UX ===== */
 
 /* Foco visível (teclado) */
@@ -159,16 +262,9 @@ button:disabled{
 /* Hover/Active */
 .btn:hover{ filter: brightness(1.05); }
 .btn:active{ transform: translateY(1px); }
-
 .btn.ghost:hover{ background: rgba(255,255,255,.09); }
 .menuLink:hover{ background: rgba(255,255,255,.07); }
-
 .iconBtn:hover{ background: rgba(255,255,255,.06); }
-
-/* Cards com glass leve */
-.card{
-  backdrop-filter: blur(6px);
-}
 
 /* Inputs: melhora leitura */
 input::placeholder{ color: rgba(184,192,230,.65); }
@@ -198,8 +294,3 @@ thead th{
 /* Zebra + hover na linha */
 tbody tr:nth-child(even){ background: rgba(255,255,255,.02); }
 tbody tr:hover{ background: rgba(34,197,94,.06); }
-
-/* Ajuste do footer */
-.foot{
-  color: rgba(184,192,230,.9);
-}
