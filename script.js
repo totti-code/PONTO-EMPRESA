@@ -38,9 +38,7 @@ function norm(s){
 function anyDateToISO(v){
   const s = String(v ?? "").trim();
   if(!s) return "";
-  // yyyy-mm-dd
   if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-  // dd/mm/aaaa
   const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
   if(!m) return "";
   const [, dd, mm, yyyy] = m;
@@ -50,13 +48,9 @@ function anyDateToISO(v){
 // ===== CALCULO DE HORAS =====
 function timeToSeconds(t){
   if(!t) return null;
-
-  // remove timezone se existir (ex: 08:00:00+00)
   t = String(t).split("+")[0];
-
   const parts = t.split(":").map(Number);
   if(parts.length < 2) return null;
-
   const [hh, mm, ss = 0] = parts;
   return hh*3600 + mm*60 + ss;
 }
@@ -97,16 +91,16 @@ const msg = $("msg");
 const exportBtn = $("export");
 const yearEl = $("year");
 
-// filtros (existem na index.html)
+// filtros (só existem na ADMIN agora)
 const filter = $("filter");
 const filterDate = $("filterDate");
 
-// ✅ por padrão, mostrar apenas o dia atual
-if (filterDate && !filterDate.value) {
-  filterDate.value = nowDate(); // yyyy-mm-dd
-}
-
 if(yearEl) yearEl.textContent = new Date().getFullYear();
+
+// ✅ por padrão, mostrar apenas o dia atual (no ADMIN)
+if (filterDate && !filterDate.value) {
+  filterDate.value = nowDate();
+}
 
 function showMsg(text, ok){
   if(!msg) return;
@@ -117,27 +111,24 @@ function showMsg(text, ok){
 
 // ===== RENDER TABELA (SUPABASE) =====
 async function render(){
-  if(!tbody) return;
+  if(!tbody) return; // se não tiver tabela, não faz nada
 
   if(!window.supabaseClient){
-    tbody.innerHTML = `<tr><td colspan="7">Supabase não inicializado.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8">Supabase não inicializado.</td></tr>`;
     return;
   }
 
-  // ✅ pega a data do filtro (por padrão hoje)
-const dateISO = anyDateToISO(filterDate?.value) || nowDate();
+  const dateISO = anyDateToISO(filterDate?.value) || nowDate();
 
-let query = window.supabaseClient
-  .from("pontos")
-  .select("id, emp_id, data, chegada, ini_intervalo, fim_intervalo, saida")
-  .eq("data", dateISO) // ✅ só o dia selecionado (hoje por padrão)
-  .order("emp_id", { ascending: true });
-
-const { data, error } = await query;
+  const { data, error } = await window.supabaseClient
+    .from("pontos")
+    .select("id, emp_id, data, chegada, ini_intervalo, fim_intervalo, saida")
+    .eq("data", dateISO)
+    .order("emp_id", { ascending: true });
 
   if(error){
     console.error(error);
-    tbody.innerHTML = `<tr><td colspan="7">Erro ao carregar dados</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8">Erro ao carregar dados</td></tr>`;
     return;
   }
 
@@ -150,14 +141,12 @@ const { data, error } = await query;
   const nomes = {};
   (funcs || []).forEach(f => (nomes[f.emp_id] = f.nome));
 
-  // ===== aplica filtros =====
   const q = norm(filter?.value);
 
   const rows = (data || []).filter(r => {
-  const nome = nomes[r.emp_id] ?? "";
-  const okText = !q || norm(r.emp_id).includes(q) || norm(nome).includes(q);
-  return okText;
-});
+    const nome = nomes[r.emp_id] ?? "";
+    return !q || norm(r.emp_id).includes(q) || norm(nome).includes(q);
+  });
 
   tbody.innerHTML = rows.map(r => {
     const horas = secondsToHHMM(calcHorasTrabalhadas(r)) || "-";
@@ -170,13 +159,13 @@ const { data, error } = await query;
         <td>${formatHora(r.fim_intervalo)}</td>
         <td>${formatHora(r.saida)}</td>
         <td>${horas}</td>
+        <td></td>
       </tr>
     `;
   }).join("");
 
-  // se ficar vazio, mostra linha amigável
   if(!rows.length){
-    tbody.innerHTML = `<tr><td colspan="7">Nenhum registro encontrado.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8">Nenhum registro encontrado.</td></tr>`;
   }
 }
 
@@ -232,12 +221,10 @@ if (emp) {
         return showMsg("Erro ao buscar registro do dia.", false);
       }
 
-      // bloqueia duplicado
       if (existente && existente[coluna]) {
         return showMsg("Esse horário já foi registrado.", false);
       }
 
-      // update ou insert
       let result;
       if (existente) {
         result = await window.supabaseClient
@@ -256,7 +243,6 @@ if (emp) {
       }
 
       showMsg("Registrado com sucesso!", true);
-      await render();
 
     } catch (e) {
       console.error(e);
@@ -264,16 +250,14 @@ if (emp) {
     }
   }
 
-  // ✅ global
   window.addRegistro = addRegistro;
 
-  // clique nos botões
   document.addEventListener("click", (e) => {
     const btn = e.target.closest("button[data-type]");
     if (btn) window.addRegistro(btn.dataset.type);
   });
 
-  // relógio
+  // relógio só no index (se existir no html)
   setInterval(() => {
     if (dateEl) dateEl.value = nowDate();
     if (timeEl) timeEl.value = nowTime();
@@ -356,8 +340,8 @@ if(isAdminPage){
     adminAdd.onclick = async ()=>{
       if(!isAdmin()) return alert("Faça login como admin.");
 
-      const id = adminId?.value.trim();
-      const nome = adminNome?.value.trim();
+      const id = String(adminId?.value || "").trim();
+      const nome = String(adminNome?.value || "").trim();
       if(!id || !nome) return alert("Preencha ID e nome.");
 
       const { error } = await window.supabaseClient
@@ -369,14 +353,17 @@ if(isAdminPage){
         return alert("Erro ao salvar funcionário.");
       }
 
-      adminId.value = "";
-      adminNome.value = "";
+      if(adminId) adminId.value = "";
+      if(adminNome) adminNome.value = "";
       await renderStaff();
     };
   }
 
   updateAdminUI();
   renderStaff();
+
+  // ✅ no admin faz sentido renderizar tabela
+  render();
 }
 
 // ===== EXPORT CSV (SUPABASE) =====
@@ -425,4 +412,7 @@ if(filterDate){
 }
 
 // ===== START =====
-render();
+// ✅ Só renderiza automaticamente se existir tabela (admin)
+if(tbody){
+  render();
+}
