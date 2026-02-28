@@ -101,6 +101,11 @@ const yearEl = $("year");
 const filter = $("filter");
 const filterDate = $("filterDate");
 
+// ✅ por padrão, mostrar apenas o dia atual
+if (filterDate && !filterDate.value) {
+  filterDate.value = nowDate(); // yyyy-mm-dd
+}
+
 if(yearEl) yearEl.textContent = new Date().getFullYear();
 
 function showMsg(text, ok){
@@ -119,10 +124,16 @@ async function render(){
     return;
   }
 
-  const { data, error } = await window.supabaseClient
-    .from("pontos")
-    .select("id, emp_id, data, chegada, ini_intervalo, fim_intervalo, saida")
-    .order("data", { ascending: false });
+  // ✅ pega a data do filtro (por padrão hoje)
+const dateISO = anyDateToISO(filterDate?.value) || nowDate();
+
+let query = window.supabaseClient
+  .from("pontos")
+  .select("id, emp_id, data, chegada, ini_intervalo, fim_intervalo, saida")
+  .eq("data", dateISO) // ✅ só o dia selecionado (hoje por padrão)
+  .order("emp_id", { ascending: true });
+
+const { data, error } = await query;
 
   if(error){
     console.error(error);
@@ -141,14 +152,12 @@ async function render(){
 
   // ===== aplica filtros =====
   const q = norm(filter?.value);
-  const dateISO = anyDateToISO(filterDate?.value);
 
   const rows = (data || []).filter(r => {
-    const nome = nomes[r.emp_id] ?? "";
-    const okText = !q || norm(r.emp_id).includes(q) || norm(nome).includes(q);
-    const okDate = !dateISO || r.data === dateISO;
-    return okText && okDate;
-  });
+  const nome = nomes[r.emp_id] ?? "";
+  const okText = !q || norm(r.emp_id).includes(q) || norm(nome).includes(q);
+  return okText;
+});
 
   tbody.innerHTML = rows.map(r => {
     const horas = secondsToHHMM(calcHorasTrabalhadas(r)) || "-";
