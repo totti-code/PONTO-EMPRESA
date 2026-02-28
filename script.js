@@ -108,9 +108,19 @@ if(emp){
     const id = String(emp.value || "").trim();
     if(!id) return showMsg("Informe seu número (ID).", false);
 
-    const staff = loadStaff();
-    const nome = staff[id];
-    if(!nome) return showMsg("ID não cadastrado. Procure o admin.", false);
+    const { data: funcs, error: errFunc } = await window.supabaseClient
+  .from("funcionarios")
+  .select("emp_id, nome")
+  .eq("emp_id", id)
+  .limit(1);
+
+if (errFunc) {
+  console.error(errFunc);
+  return showMsg("Erro ao consultar funcionários no Supabase.", false);
+}
+
+const nome = funcs?.[0]?.nome;
+if (!nome) return showMsg("ID não cadastrado no Supabase. Procure o admin.", false);
 
     const data = nowDate();
     const hora = nowTime();
