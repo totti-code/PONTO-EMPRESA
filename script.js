@@ -63,7 +63,7 @@ function calcHorasTrabalhadas(r){
   const total = diffSeconds(r.chegada, r.saida);
   if(total == null) return null;
 
-  const intervalo = diffSeconds(r.iniIntervalo, r.fimIntervalo);
+  const intervalo = diffSeconds(r.ini_intervalo, r.fim_intervalo);
   return total - (intervalo || 0);
 }
 
@@ -292,8 +292,10 @@ async function render(){
 
   const nomes = {};
   (funcs || []).forEach(f => nomes[f.emp_id] = f.nome);
-
-  tbody.innerHTML = (data || []).map(r => `
+  
+  tbody.innerHTML = (data || []).map(r => {
+  const horas = secondsToHHMM(calcHorasTrabalhadas(r)) || "-";
+  return `
     <tr>
       <td>${r.data ?? "-"}</td>
       <td>#${r.emp_id} — ${nomes[r.emp_id] ?? "-"}</td>
@@ -301,9 +303,10 @@ async function render(){
       <td>${r.ini_intervalo ?? "-"}</td>
       <td>${r.fim_intervalo ?? "-"}</td>
       <td>${r.saida ?? "-"}</td>
-      <td></td>
+      <td>${horas}</td>
     </tr>
-  `).join("");
+  `;
+}).join("");
 }
 
 document.addEventListener("click", e=>{
