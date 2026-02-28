@@ -294,3 +294,44 @@ thead th{
 /* Zebra + hover na linha */
 tbody tr:nth-child(even){ background: rgba(255,255,255,.02); }
 tbody tr:hover{ background: rgba(34,197,94,.06); }
+/* ===== Admin layout melhor (desktop + mobile) ===== */
+.adminAccess{
+  display:grid;
+  grid-template-columns: 1fr auto;
+  gap:10px;
+  align-items:center;
+}
+
+.adminBtns{
+  display:flex;
+  gap:10px;
+  justify-content:flex-end;
+  flex-wrap:wrap;
+}
+
+.adminAddRow{
+  display:grid;
+  grid-template-columns: 160px 1fr auto;
+  gap:10px;
+  align-items:end;
+}
+
+/* ===== Mobile Admin ===== */
+@media (max-width:560px){
+  .adminAccess{
+    grid-template-columns: 1fr;
+  }
+  .adminBtns{
+    width:100%;
+  }
+  .adminBtns .btn{
+    width:100%;
+  }
+
+  .adminAddRow{
+    grid-template-columns: 1fr;
+  }
+  #adminAdd{
+    width:100%;
+  }
+}
