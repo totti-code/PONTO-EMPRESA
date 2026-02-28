@@ -3,11 +3,23 @@ const $ = (id) => document.getElementById(id);
 // Detecta página atual
 const isAdminPage = location.pathname.includes("admin");
 
-// ===== STORAGE =====
-const STORAGE_KEY = "ponto_registros_v5";
-const STAFF_KEY   = "ponto_staff_v1";
-const ADMIN_KEY   = "ponto_admin_session_v1";
-const ADMIN_PASSWORD = "1234"; // 🔐 ALTERE AQUI SUA SENHA
+// ===== ADMIN (sessão local simples) =====
+const ADMIN_KEY = "ponto_admin_session_v1";
+const ADMIN_PASSWORD = "1234"; // 🔐 troque
+
+function loadJSON(key, fallback){
+  try { return JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback)); }
+  catch { return fallback; }
+}
+function saveJSON(key, val){
+  localStorage.setItem(key, JSON.stringify(val));
+}
+function isAdmin(){
+  return loadJSON(ADMIN_KEY, { ok:false }).ok === true;
+}
+function setAdmin(on){
+  saveJSON(ADMIN_KEY, { ok: !!on });
+}
 
 // ===== UTILS =====
 function pad(n){ return String(n).padStart(2,"0"); }
@@ -19,22 +31,8 @@ function nowTime(){
   const d = new Date();
   return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
-function loadJSON(key, fallback){
-  try { return JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback)); }
-  catch { return fallback; }
-}
-function saveJSON(key, val){
-  localStorage.setItem(key, JSON.stringify(val));
-}
-function makeId(){
-  return crypto.randomUUID ? crypto.randomUUID() : Date.now() + Math.random();
-}
-function makeId(){
-  return crypto.randomUUID ? crypto.randomUUID() : Date.now() + Math.random();
-}
 
-/* ===== CALCULO DE HORAS ===== */
-
+// ===== CALCULO DE HORAS =====
 function timeToSeconds(t){
   if(!t) return null;
   const parts = t.split(":").map(Number);
@@ -62,16 +60,8 @@ function diffSeconds(start, end){
 function calcHorasTrabalhadas(r){
   const total = diffSeconds(r.chegada, r.saida);
   if(total == null) return null;
-
   const intervalo = diffSeconds(r.ini_intervalo, r.fim_intervalo);
   return total - (intervalo || 0);
-}
-
-function isAdmin(){
-  return loadJSON(ADMIN_KEY, { ok:false }).ok === true;
-}
-function setAdmin(on){
-  saveJSON(ADMIN_KEY, { ok: !!on });
 }
 
 // ===== ELEMENTOS (SE EXISTIREM) =====
@@ -80,121 +70,162 @@ const dateEl = $("date");
 const timeEl = $("time");
 const tbody = $("tbody");
 const msg = $("msg");
-const filter = $("filter");
-const filterDate = $("filterDate");
 const exportBtn = $("export");
-const clearBtn = $("clear");
 const yearEl = $("year");
 
 if(yearEl) yearEl.textContent = new Date().getFullYear();
 
-// ===== STAFF =====
-function loadStaff(){ return loadJSON(STAFF_KEY, {}); }
-function saveStaff(map){ saveJSON(STAFF_KEY, map); }
+function showMsg(text, ok){
+  if(!msg) return;
+  msg.style.color = ok ? "#22c55e" : "#ef4444";
+  msg.textContent = text;
+  setTimeout(()=> (msg.textContent=""), 2500);
+}
 
-// ===== REGISTRO DE PONTO (INDEX.HTML) =====
+// ===== RENDER TABELA (SUPABASE) =====
+async function render(){
+  if(!tbody) return;
+
+  if(!window.supabaseClient){
+    tbody.innerHTML = `<tr><td colspan="7">Supabase não inicializado.</td></tr>`;
+    return;
+  }
+
+  const { data, error } = await window.supabaseClient
+    .from("pontos")
+    .select("id, emp_id, data, chegada, ini_intervalo, fim_intervalo, saida")
+    .order("data", { ascending: false });
+
+  if(error){
+    console.error(error);
+    tbody.innerHTML = `<tr><td colspan="7">Erro ao carregar dados</td></tr>`;
+    return;
+  }
+
+  const { data: funcs, error: errFuncs } = await window.supabaseClient
+    .from("funcionarios")
+    .select("emp_id, nome");
+
+  if(errFuncs) console.error(errFuncs);
+
+  const nomes = {};
+  (funcs || []).forEach(f => (nomes[f.emp_id] = f.nome));
+
+  tbody.innerHTML = (data || []).map(r => {
+    const horas = secondsToHHMM(calcHorasTrabalhadas(r)) || "-";
+    return `
+      <tr>
+        <td>${r.data ?? "-"}</td>
+        <td>#${r.emp_id} — ${nomes[r.emp_id] ?? "-"}</td>
+        <td>${r.chegada ?? "-"}</td>
+        <td>${r.ini_intervalo ?? "-"}</td>
+        <td>${r.fim_intervalo ?? "-"}</td>
+        <td>${r.saida ?? "-"}</td>
+        <td>${horas}</td>
+      </tr>
+    `;
+  }).join("");
+}
+
+// ===== REGISTRO DE PONTO (INDEX) =====
 if(emp){
 
-  function fieldByTipo(tipo){
-    return {
-      CHEGADA: "chegada",
-      INI_INTERVALO: "iniIntervalo",
-      FIM_INTERVALO: "fimIntervalo",
-      SAIDA: "saida"
-    }[tipo];
-  }
-
   async function addRegistro(tipo){
-  const id = String(emp.value || "").trim();
-  if(!id) return showMsg("Informe seu número (ID).", false);
+    try{
+      const id = String(emp.value || "").trim();
+      if(!id) return showMsg("Informe seu número (ID).", false);
 
-  // valida funcionário
-  const { data: funcs, error: errFunc } = await window.supabaseClient
-    .from("funcionarios")
-    .select("emp_id, nome")
-    .eq("emp_id", id)
-    .maybeSingle();
+      if(!window.supabaseClient){
+        return showMsg("Supabase não inicializado.", false);
+      }
 
-  if (errFunc) {
-    console.error(errFunc);
-    return showMsg("Erro ao consultar funcionários no Supabase.", false);
+      // valida funcionário
+      const { data: func, error: errFunc } = await window.supabaseClient
+        .from("funcionarios")
+        .select("emp_id, nome")
+        .eq("emp_id", id)
+        .maybeSingle();
+
+      if(errFunc){
+        console.error(errFunc);
+        return showMsg("Erro ao consultar funcionários.", false);
+      }
+      if(!func?.nome){
+        return showMsg("ID não cadastrado. Procure o admin.", false);
+      }
+
+      const data = nowDate();
+      const hora = nowTime();
+
+      const coluna = ({
+        CHEGADA: "chegada",
+        INI_INTERVALO: "ini_intervalo",
+        FIM_INTERVALO: "fim_intervalo",
+        SAIDA: "saida",
+      })[tipo];
+
+      if(!coluna) return showMsg("Tipo inválido.", false);
+
+      // registro do dia
+      const { data: existente, error: errSel } = await window.supabaseClient
+        .from("pontos")
+        .select("id, chegada, ini_intervalo, fim_intervalo, saida")
+        .eq("emp_id", id)
+        .eq("data", data)
+        .maybeSingle();
+
+      if(errSel){
+        console.error(errSel);
+        return showMsg("Erro ao buscar registro do dia.", false);
+      }
+
+      // bloqueia duplicado
+      if(existente && existente[coluna]){
+        return showMsg("Esse horário já foi registrado.", false);
+      }
+
+      // update ou insert
+      let result;
+      if(existente){
+        result = await window.supabaseClient
+          .from("pontos")
+          .update({ [coluna]: hora })
+          .eq("id", existente.id);
+      } else {
+        result = await window.supabaseClient
+          .from("pontos")
+          .insert([{ emp_id: id, data, [coluna]: hora }]);
+      }
+
+      if(result.error){
+        console.error(result.error);
+        return showMsg("Erro ao salvar no banco.", false);
+      }
+
+      showMsg("Registrado com sucesso!", true);
+      await render();
+
+    } catch(e){
+      console.error(e);
+      showMsg("Erro inesperado ao registrar.", false);
+    }
   }
-  if (!funcs?.nome) return showMsg("ID não cadastrado no Supabase. Procure o admin.", false);
 
-  // data/hora
-  const data = nowDate();      // (se quiser 100% local BR, ok)
-  const hora = nowTime();
+  // deixa acessível no console se quiser testar
+  window.addRegistro = addRegistro;
 
-  // coluna do banco
-  const coluna = ({
-    CHEGADA: "chegada",
-    INI_INTERVALO: "ini_intervalo",
-    FIM_INTERVALO: "fim_intervalo",
-    SAIDA: "saida",
-  })[tipo];
-
-  if(!coluna) return showMsg("Tipo inválido.", false);
-
-  // pega registro do dia
-  const { data: existente, error: errSel } = await window.supabaseClient
-    .from("pontos")
-    .select("id, chegada, ini_intervalo, fim_intervalo, saida")
-    .eq("emp_id", id)
-    .eq("data", data)
-    .maybeSingle();
-
-  if (errSel) {
-    console.error(errSel);
-    return showMsg("Erro ao buscar registro do dia.", false);
-  }
-
-  // bloqueia duplicado
-  if (existente && existente[coluna]) {
-    return showMsg("Esse horário já foi registrado.", false);
-  }
-
-  // update ou insert
-  let result;
-  if (existente) {
-    result = await window.supabaseClient
-      .from("pontos")
-      .update({ [coluna]: hora })
-      .eq("id", existente.id);
-  } else {
-    result = await window.supabaseClient
-      .from("pontos")
-      .insert([{ emp_id: id, data, [coluna]: hora }]);
-  }
-
-  if (result.error) {
-    console.error(result.error);
-    return showMsg("Erro ao salvar no banco.", false);
-  }
-
-  showMsg("Registrado com sucesso!", true);
-  await render();
-}
-    
-    showMsg("Registrado com sucesso!", true);
-  }
-
-  function showMsg(text, ok){
-    if(!msg) return;
-    msg.style.color = ok ? "#22c55e" : "#ef4444";
-    msg.textContent = text;
-    setTimeout(()=> msg.textContent="", 2500);
-  }
-
-  document.addEventListener("click", e=>{
+  // clique nos botões data-type
+  document.addEventListener("click", (e)=>{
     const btn = e.target.closest("button[data-type]");
     if(btn) addRegistro(btn.dataset.type);
   });
 
+  // relógio
   setInterval(()=>{
     if(dateEl) dateEl.value = nowDate();
     if(timeEl) timeEl.value = nowTime();
-  },1000);
-
+  }, 1000);
+}
 
 // ===== ADMIN PAGE =====
 if(isAdminPage){
@@ -213,18 +244,46 @@ if(isAdminPage){
     if(!adminStatus) return;
     if(isAdmin()){
       adminStatus.textContent = "Admin logado";
-      adminLogin.style.display = "none";
-      adminLogout.style.display = "inline-flex";
+      if(adminLogin) adminLogin.style.display = "none";
+      if(adminLogout) adminLogout.style.display = "inline-flex";
     } else {
       adminStatus.textContent = "Admin não logado";
-      adminLogin.style.display = "inline-flex";
-      adminLogout.style.display = "none";
+      if(adminLogin) adminLogin.style.display = "inline-flex";
+      if(adminLogout) adminLogout.style.display = "none";
     }
+  }
+
+  async function renderStaff(){
+    if(!adminList) return;
+
+    if(!window.supabaseClient){
+      adminList.innerHTML = "Supabase não inicializado.";
+      return;
+    }
+
+    const { data, error } = await window.supabaseClient
+      .from("funcionarios")
+      .select("emp_id, nome")
+      .order("emp_id", { ascending: true });
+
+    if(error){
+      console.error(error);
+      adminList.innerHTML = "Erro ao carregar funcionários.";
+      return;
+    }
+
+    adminList.innerHTML = (data || []).map(f=>`
+      <div class="staffRow">
+        <div class="staffInfo">
+          <b>#${f.emp_id}</b> — ${f.nome}
+        </div>
+      </div>
+    `).join("");
   }
 
   if(adminLogin){
     adminLogin.onclick = ()=>{
-      if(adminPass.value === ADMIN_PASSWORD){
+      if(adminPass && adminPass.value === ADMIN_PASSWORD){
         setAdmin(true);
         updateAdminUI();
       } else {
@@ -241,149 +300,58 @@ if(isAdminPage){
   }
 
   if(adminAdd){
-    adminAdd.onclick = ()=>{
+    adminAdd.onclick = async ()=>{
       if(!isAdmin()) return alert("Faça login como admin.");
-      const id = adminId.value.trim();
-      const nome = adminNome.value.trim();
-      if(!id || !nome) return;
-      const staff = loadStaff();
-      staff[id] = nome;
-      saveStaff(staff);
+
+      const id = adminId?.value.trim();
+      const nome = adminNome?.value.trim();
+      if(!id || !nome) return alert("Preencha ID e nome.");
+
+      const { error } = await window.supabaseClient
+        .from("funcionarios")
+        .upsert({ emp_id: id, nome });
+
+      if(error){
+        console.error(error);
+        return alert("Erro ao salvar funcionário.");
+      }
+
       adminId.value = "";
       adminNome.value = "";
-      renderStaff();
+      await renderStaff();
     };
-  }
-
-  function renderStaff(){
-    if(!adminList) return;
-    const staff = loadStaff();
-    adminList.innerHTML = Object.keys(staff).map(id=>`
-      <div class="staffRow">
-        <div class="staffInfo">
-          <b>#${id}</b> — ${staff[id]}
-        </div>
-      </div>
-    `).join("");
   }
 
   updateAdminUI();
   renderStaff();
 }
 
-// ===== RENDER TABELA (SUPABASE) =====
-async function render(){
-  if(!tbody) return;
+// ===== EXPORT CSV (SUPABASE) =====
+if(exportBtn){
+  exportBtn.onclick = async ()=>{
+    if(!window.supabaseClient) return alert("Supabase não inicializado.");
 
-  const { data, error } = await window.supabaseClient
-    .from("pontos")
-    .select("id, emp_id, data, chegada, ini_intervalo, fim_intervalo, saida")
-    .order("data", { ascending: false });
+    const { data, error } = await window.supabaseClient
+      .from("pontos")
+      .select("data, emp_id, chegada, ini_intervalo, fim_intervalo, saida")
+      .order("data", { ascending: false });
 
-  if(error){
-    console.error(error);
-    tbody.innerHTML = `<tr><td colspan="7">Erro ao carregar dados</td></tr>`;
-    return;
-  }
+    if(error){
+      console.error(error);
+      return alert("Erro ao exportar.");
+    }
+    if(!data?.length) return;
 
-  const { data: funcs } = await window.supabaseClient
-    .from("funcionarios")
-    .select("emp_id, nome");
+    const header = ["data","emp_id","chegada","ini_intervalo","fim_intervalo","saida","horas_trabalhadas"];
 
-  const nomes = {};
-  (funcs || []).forEach(f => nomes[f.emp_id] = f.nome);
-  
-  tbody.innerHTML = (data || []).map(r => {
-  const horas = secondsToHHMM(calcHorasTrabalhadas(r)) || "-";
-  return `
-    <tr>
-      <td>${r.data ?? "-"}</td>
-      <td>#${r.emp_id} — ${nomes[r.emp_id] ?? "-"}</td>
-      <td>${r.chegada ?? "-"}</td>
-      <td>${r.ini_intervalo ?? "-"}</td>
-      <td>${r.fim_intervalo ?? "-"}</td>
-      <td>${r.saida ?? "-"}</td>
-      <td>${horas}</td>
-    </tr>
-  `;
-}).join("");
-}
-
-document.addEventListener("click", e=>{
-
-  // ===== EXCLUIR =====
-  const del = e.target.closest("button[data-del]");
-  if(del && isAdmin()){
-    let rows = loadJSON(STORAGE_KEY, []);
-    rows = rows.filter(r=>r.id !== del.dataset.del);
-    saveJSON(STORAGE_KEY, rows);
-    render();
-  }
-
-  // ===== EDITAR =====
-  const edit = e.target.closest("button[data-edit]");
-  if(edit && isAdmin()){
-
-    const rowId = edit.dataset.edit;
-    const rows = loadJSON(STORAGE_KEY, []);
-    const row = rows.find(r => r.id === rowId);
-    if(!row) return;
-
-    const campo = prompt(
-      "Qual deseja editar?\n1=Chegada\n2=Início intervalo\n3=Fim intervalo\n4=Saída"
+    const lines = [header.join(",")].concat(
+      data.map(r => {
+        const horas = secondsToHHMM(calcHorasTrabalhadas(r)) || "";
+        const obj = { ...r, horas_trabalhadas: horas };
+        return header.map(k => `"${String(obj[k] ?? "").replaceAll('"','""')}"`).join(",");
+      })
     );
 
-    const map = {
-      "1": "chegada",
-      "2": "iniIntervalo",
-      "3": "fimIntervalo",
-      "4": "saida"
-    };
-
-    const key = map[campo];
-    if(!key) return;
-
-    const atual = row[key] || "";
-    const novo = prompt("Novo horário (HH:MM:SS)", atual);
-    if(novo === null) return;
-
-    if(!/^\d{2}:\d{2}(:\d{2})?$/.test(novo.trim())){
-      alert("Formato inválido. Use HH:MM ou HH:MM:SS");
-      return;
-    }
-
-    row[key] = novo.trim().length === 5 ? novo.trim() + ":00" : novo.trim();
-
-    saveJSON(STORAGE_KEY, rows);
-    render();
-  }
-
-});
-
-if(clearBtn){
-  clearBtn.onclick = ()=>{
-    if(!isAdmin()) return alert("Somente admin pode limpar.");
-    if(confirm("Apagar todos os registros?")){
-      localStorage.removeItem(STORAGE_KEY);
-      render();
-    }
-  };
-}
-
-if(exportBtn){
-  exportBtn.onclick = ()=>{
-    const rows = loadJSON(STORAGE_KEY, []);
-    if(!rows.length) return;
-    const header = ["data","empId","funcionario","chegada","iniIntervalo","fimIntervalo","saida","horasTrabalhadas"];
-
-const lines = [header.join(",")].concat(
-  rows.map(r => {
-    const horas = secondsToHHMM(calcHorasTrabalhadas(r)) || "";
-    const obj = { ...r, horasTrabalhadas: horas };
-
-    return header.map(k => `"${String(obj[k] ?? "").replaceAll('"','""')}"`).join(",");
-  })
-);
     const blob = new Blob([lines.join("\n")], {type:"text/csv"});
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -394,14 +362,5 @@ const lines = [header.join(",")].concat(
   };
 }
 
+// ===== START =====
 render();
-
-async function testConnection() {
-  const { data, error } = await window.supabaseClient
-    .from("pontos")
-    .select("*")
-    .limit(5);
-
-  console.log({ data, error });
-}
-testConnection();
