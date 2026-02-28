@@ -347,20 +347,13 @@ const lines = [header.join(",")].concat(
 }
 
 render();
-render();
 
-async function inserirTeste() {
+async function testConnection() {
   const { data, error } = await window.supabaseClient
     .from("pontos")
-    .insert([
-      {
-        id_funcionario: "1",
-        dados: "2026-02-27",
-        chegada: "08:00:00"
-      }
-    ]);
+    .select("*")
+    .limit(5);
 
   console.log({ data, error });
 }
-
-inserirTeste();
+testConnection();
