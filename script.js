@@ -237,26 +237,37 @@ if(isAdminPage){
   renderStaff();
 }
 
-// ===== RENDER TABELA (AMBAS) =====
-function render(){
+// ===== RENDER TABELA (SUPABASE) =====
+async function render(){
   if(!tbody) return;
 
-  const rows = loadJSON(STORAGE_KEY, []);
+  const { data, error } = await window.supabaseClient
+    .from("pontos")
+    .select("id, emp_id, data, chegada, ini_intervalo, fim_intervalo, saida")
+    .order("data", { ascending: false });
 
-  tbody.innerHTML = rows.map(r=>`
+  if(error){
+    console.error(error);
+    tbody.innerHTML = `<tr><td colspan="7">Erro ao carregar dados</td></tr>`;
+    return;
+  }
+
+  const { data: funcs } = await window.supabaseClient
+    .from("funcionarios")
+    .select("emp_id, nome");
+
+  const nomes = {};
+  (funcs || []).forEach(f => nomes[f.emp_id] = f.nome);
+
+  tbody.innerHTML = (data || []).map(r => `
     <tr>
-      <td>${r.data}</td>
-      <td>#${r.empId} — ${r.funcionario}</td>
-      <td>${r.chegada || "-"}</td>
-      <td>${r.iniIntervalo || "-"}</td>
-      <td>${r.fimIntervalo || "-"}</td>
-      <td>${r.saida || "-"}</td>
-      <td>
-        ${isAdmin() ? `
-          <button data-edit="${r.id}" class="iconBtn">Editar</button>
-          <button data-del="${r.id}" class="iconBtn">Excluir</button>
-        ` : ""}
-      </td>
+      <td>${r.data ?? "-"}</td>
+      <td>#${r.emp_id} — ${nomes[r.emp_id] ?? "-"}</td>
+      <td>${r.chegada ?? "-"}</td>
+      <td>${r.ini_intervalo ?? "-"}</td>
+      <td>${r.fim_intervalo ?? "-"}</td>
+      <td>${r.saida ?? "-"}</td>
+      <td></td>
     </tr>
   `).join("");
 }
