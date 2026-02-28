@@ -125,32 +125,54 @@ if (!nome) return showMsg("ID não cadastrado no Supabase. Procure o admin.", fa
     const data = nowDate();
     const hora = nowTime();
 
-    const rows = loadJSON(STORAGE_KEY, []);
-    let row = rows.find(r => r.empId === id && r.data === data);
+// Define coluna correta
+const coluna = ({
+  CHEGADA: "chegada",
+  INI_INTERVALO: "ini_intervalo",
+  FIM_INTERVALO: "fim_intervalo",
+  SAIDA: "saida",
+})[tipo];
 
-    if(!row){
-      row = {
-        id: makeId(),
-        data,
-        empId: id,
-        funcionario: nome,
-        chegada: "",
-        iniIntervalo: "",
-        fimIntervalo: "",
-        saida: ""
-      };
-      rows.unshift(row);
-    }
+// Verifica se já existe registro no Supabase para o dia
+const { data: existente, error: errSel } = await window.supabaseClient
+  .from("pontos")
+  .select("*")
+  .eq("emp_id", id)
+  .eq("data", data)
+  .maybeSingle();
 
-    const campo = fieldByTipo(tipo);
-    if(row[campo]){
-      return showMsg("Esse horário já foi registrado.", false);
-    }
+if (errSel) {
+  console.error(errSel);
+  return showMsg("Erro ao buscar registro do dia.", false);
+}
 
-    row[campo] = hora;
+if (existente?.[coluna]) {
+  return showMsg("Esse horário já foi registrado.", false);
+}
 
-    saveJSON(STORAGE_KEY, rows);
-    render();
+let result;
+
+if (existente) {
+  // Atualiza registro existente
+  result = await window.supabaseClient
+    .from("pontos")
+    .update({ [coluna]: hora })
+    .eq("id", existente.id);
+} else {
+  // Cria novo registro
+  result = await window.supabaseClient
+    .from("pontos")
+    .insert([{ emp_id: id, data, [coluna]: hora }]);
+}
+
+if (result.error) {
+  console.error(result.error);
+  return showMsg("Erro ao salvar no banco.", false);
+}
+
+showMsg("Registrado com sucesso!", true);
+await render();
+    
     showMsg("Registrado com sucesso!", true);
   }
 
