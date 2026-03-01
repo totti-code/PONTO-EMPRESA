@@ -365,24 +365,29 @@ if(isAdminPage){
     }
   }
 
-  if(adminLogin){
-    adminLogin.onclick = async ()=>{
-      try{
-        const email = String(adminEmail?.value || "").trim();
-        const pass = String(adminPass?.value || "").trim();
-        if(!email || !pass) return showMsg("Informe email e senha.", false);
+  if (adminLogin) {
+  adminLogin.onclick = async () => {
+    try {
+      const email = String(adminEmail?.value || "").trim();
+      const pass  = String(adminPass?.value  || "").trim();
 
-        const { error } = await sb().auth.signInWithPassword({ email, password: pass });
-        if(error){ console.error(error); return showMsg("Login inválido.", false); }
+      if (!email || !pass) return showMsg("Informe email e senha.", false);
 
-        showMsg("Logado.", true);
-        await syncAuthUI();
-      } catch(e){
-        console.error(e);
-        showMsg("Erro no login.", false);
+      const { error } = await sb().auth.signInWithPassword({ email, password: pass });
+
+      if (error) {
+        console.error(error);
+        return showMsg("Login inválido.", false);
       }
-    };
-  }
+
+      showMsg("Logado.", true);
+      await syncAuthUI();
+    } catch (e) {
+      console.error(e);
+      showMsg("Erro no login.", false);
+    }
+  };
+}
 
   if(adminLogout){
     adminLogout.onclick = async ()=>{
