@@ -1,56 +1,27 @@
 const $ = (id) => document.getElementById(id);
-
-// Detecta páginas
 const isAdminPage = location.pathname.includes("admin");
 
 // ===== UTILS =====
 function pad(n){ return String(n).padStart(2,"0"); }
-function nowDate(){
+function nowDateBR(){
+  // dia local do navegador (Brasil)
   const d = new Date();
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 }
-function nowTime(){
-  const d = new Date();
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-}
 function norm(s){ return String(s ?? "").toLowerCase().trim(); }
-
-function isoToBR(iso){ // yyyy-mm-dd -> dd/mm/yyyy
+function isoToBR(iso){
   if(!iso) return "";
   const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if(!m) return String(iso);
   return `${m[3]}/${m[2]}/${m[1]}`;
 }
-function hhmm(t){ // "HH:MM:SS" -> "HH:MM"
-  if(!t) return "";
-  const s = String(t).split("+")[0];
-  const parts = s.split(":");
-  if(parts.length < 2) return s;
-  return `${parts[0].padStart(2,"0")}:${parts[1].padStart(2,"0")}`;
-}
-
-// ===== CÁLCULO HORAS =====
-function timeToSeconds(t){
-  if(!t) return null;
-  t = String(t).split("+")[0];
-  const parts = t.split(":").map(Number);
-  if(parts.length < 2) return null;
-  const [hh, mm, ss = 0] = parts;
-  return hh*3600 + mm*60 + ss;
-}
-function diffSeconds(start, end){
-  const s = timeToSeconds(start);
-  const e = timeToSeconds(end);
-  if(s == null || e == null) return null;
-  let d = e - s;
-  if(d < 0) d += 86400;
-  return d;
-}
-function calcHorasTrabalhadas(r){
-  const total = diffSeconds(r.chegada, r.saida);
-  if(total == null) return null;
-  const intervalo = diffSeconds(r.ini_intervalo, r.fim_intervalo);
-  return total - (intervalo || 0);
+function fmtTimeBR(ts){
+  if(!ts) return "-";
+  return new Date(ts).toLocaleTimeString("pt-BR", {
+    timeZone: "America/Fortaleza",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
 }
 function secondsToHHMM(total){
   if(total == null || total < 0) return "";
@@ -58,7 +29,21 @@ function secondsToHHMM(total){
   const mm = Math.floor((total % 3600) / 60);
   return `${String(hh).padStart(2,"0")}:${String(mm).padStart(2,"0")}`;
 }
-
+function diffSecondsTs(startTs, endTs){
+  if(!startTs || !endTs) return null;
+  const s = new Date(startTs).getTime();
+  const e = new Date(endTs).getTime();
+  if(Number.isNaN(s) || Number.isNaN(e)) return null;
+  let d = Math.floor((e - s) / 1000);
+  if(d < 0) d += 86400;
+  return d;
+}
+function calcHorasTrabalhadasTs(r){
+  const total = diffSecondsTs(r.chegada_ts, r.saida_ts);
+  if(total == null) return null;
+  const intervalo = diffSecondsTs(r.ini_intervalo_ts, r.fim_intervalo_ts);
+  return total - (intervalo || 0);
+}
 function showMsg(text, ok){
   const msg = $("msg");
   if(!msg) return;
@@ -66,25 +51,18 @@ function showMsg(text, ok){
   msg.textContent = text;
   setTimeout(()=> (msg.textContent=""), 2500);
 }
-
-// ===== ELEMENTOS GERAIS =====
-const yearEl = $("year");
-if(yearEl) yearEl.textContent = new Date().getFullYear();
-
-// ===== SUPABASE CHECK =====
-function sb(){
-  return window.supabaseClient;
-}
+function sb(){ return window.supabaseClient; }
 function ensureSb(){
-  if(!sb()){
-    console.error("Supabase não inicializado.");
-    return false;
-  }
+  if(!sb()){ console.error("Supabase não inicializado."); return false; }
   return true;
 }
 
-// ===== ADMIN: checar se usuário logado é admin (tabela public.admins) =====
-let cachedAdmin = null; // true/false
+// ===== YEAR =====
+const yearEl = $("year");
+if(yearEl) yearEl.textContent = new Date().getFullYear();
+
+// ===== ADMIN CHECK =====
+let cachedAdmin = null;
 async function checkIsAdmin(){
   if(!ensureSb()) return false;
 
@@ -92,7 +70,6 @@ async function checkIsAdmin(){
   const user = sess?.session?.user;
   if(!user) return false;
 
-  // cache simples
   if(cachedAdmin === true) return true;
   if(cachedAdmin === false) return false;
 
@@ -102,34 +79,34 @@ async function checkIsAdmin(){
     .eq("user_id", user.id)
     .maybeSingle();
 
-  if(error){
-    console.error(error);
-    cachedAdmin = false;
-    return false;
-  }
-
+  if(error){ console.error(error); cachedAdmin = false; return false; }
   cachedAdmin = !!data?.user_id;
   return cachedAdmin;
 }
-
-function setAdminUIVisible(isAdmin){
-  // Mostra/oculta blocos adminOnly
+function setAdminUIVisible(on){
   document.querySelectorAll(".adminOnly").forEach(el=>{
-    el.style.display = isAdmin ? "" : "none";
+    el.style.display = on ? "" : "none";
   });
 }
 
-// ===== INDEX: relógio e inputs travados =====
-const emp = $("emp");
+// ===== INDEX CLOCK DISPLAY (apenas visual) =====
 const dateEl = $("date");
 const timeEl = $("time");
-
-if(dateEl) dateEl.value = nowDate();
-if(timeEl) timeEl.value = nowTime();
-setInterval(() => {
-  if(dateEl) dateEl.value = nowDate();
-  if(timeEl) timeEl.value = nowTime();
-}, 1000);
+function tickVisualClock(){
+  const d = new Date();
+  if(dateEl) dateEl.value = nowDateBR();
+  if(timeEl){
+    // só visual, não é usado pra salvar
+    const hh = pad(d.getHours());
+    const mm = pad(d.getMinutes());
+    const ss = pad(d.getSeconds());
+    timeEl.value = `${hh}:${mm}:${ss}`;
+  }
+}
+if(dateEl || timeEl){
+  tickVisualClock();
+  setInterval(tickVisualClock, 1000);
+}
 
 // ===== INDEX: LISTA DE HOJE =====
 const todayTbody = $("todayTbody");
@@ -143,18 +120,18 @@ async function renderToday(){
     return;
   }
 
-  const d = nowDate();
+  const d = nowDateBR();
   if(todayLabel) todayLabel.textContent = `Dia: ${isoToBR(d)}`;
 
   const { data, error } = await sb()
     .from("pontos")
-    .select("id, emp_id, data, chegada, ini_intervalo, fim_intervalo, saida, funcionarios(nome)")
+    .select("id, emp_id, data, chegada_ts, ini_intervalo_ts, fim_intervalo_ts, saida_ts, funcionarios(nome)")
     .eq("data", d)
     .order("emp_id", { ascending: true });
 
   if(error){
     console.error(error);
-    todayTbody.innerHTML = `<tr><td colspan="6">Erro ao carregar registros.</td></tr>`;
+    todayTbody.innerHTML = `<tr><td colspan="6">Erro ao carregar.</td></tr>`;
     return;
   }
 
@@ -166,37 +143,38 @@ async function renderToday(){
 
   todayTbody.innerHTML = rows.map(r=>{
     const nome = r.funcionarios?.nome ? `#${r.emp_id} ${r.funcionarios.nome}` : `#${r.emp_id}`;
-    const horas = secondsToHHMM(calcHorasTrabalhadas(r)) || "-";
+    const horas = secondsToHHMM(calcHorasTrabalhadasTs(r)) || "-";
     return `
       <tr>
         <td class="tdName" title="${nome}">${nome}</td>
-        <td>${hhmm(r.chegada) || "-"}</td>
-        <td>${hhmm(r.ini_intervalo) || "-"}</td>
-        <td>${hhmm(r.fim_intervalo) || "-"}</td>
-        <td>${hhmm(r.saida) || "-"}</td>
+        <td>${fmtTimeBR(r.chegada_ts)}</td>
+        <td>${fmtTimeBR(r.ini_intervalo_ts)}</td>
+        <td>${fmtTimeBR(r.fim_intervalo_ts)}</td>
+        <td>${fmtTimeBR(r.saida_ts)}</td>
         <td>${horas}</td>
       </tr>
     `;
   }).join("");
 }
 
-if(refreshToday){
-  refreshToday.onclick = ()=> renderToday();
-}
+if(refreshToday) refreshToday.onclick = ()=> renderToday();
 if(todayTbody){
   renderToday();
-  // auto-atualiza leve (a cada 20s)
   setInterval(renderToday, 20000);
 }
 
-// ===== INDEX: REGISTRAR PONTO =====
+// ===== INDEX: REGISTRAR PONTO (hora do servidor via trigger) =====
+const emp = $("emp");
+
 if(emp){
-  async function addRegistro(tipo) {
-    try {
+  const MARK = "1970-01-01T00:00:00Z"; // gatilho, o servidor troca por now()
+
+  async function addRegistro(tipo){
+    try{
       if(!ensureSb()) return showMsg("Supabase não inicializado.", false);
 
       const id = String(emp.value || "").trim();
-      if (!id) return showMsg("Informe seu número (ID).", false);
+      if(!id) return showMsg("Informe seu número (ID).", false);
 
       // valida funcionário
       const { data: func, error: errFunc } = await sb()
@@ -205,73 +183,64 @@ if(emp){
         .eq("emp_id", id)
         .maybeSingle();
 
-      if (errFunc) {
-        console.error(errFunc);
-        return showMsg("Erro ao consultar funcionários.", false);
-      }
-      if (!func?.nome) {
-        return showMsg("ID não cadastrado. Procure o admin.", false);
-      }
+      if(errFunc){ console.error(errFunc); return showMsg("Erro ao consultar funcionários.", false); }
+      if(!func?.nome) return showMsg("ID não cadastrado. Procure o admin.", false);
 
-      const data = nowDate();
-      const hora = nowTime();
+      const dataDia = nowDateBR();
 
-      const coluna = ({
-        CHEGADA: "chegada",
-        INI_INTERVALO: "ini_intervalo",
-        FIM_INTERVALO: "fim_intervalo",
-        SAIDA: "saida",
+      const colunaTs = ({
+        CHEGADA: "chegada_ts",
+        INI_INTERVALO: "ini_intervalo_ts",
+        FIM_INTERVALO: "fim_intervalo_ts",
+        SAIDA: "saida_ts",
       })[tipo];
 
-      if (!coluna) return showMsg("Tipo inválido.", false);
+      if(!colunaTs) return showMsg("Tipo inválido.", false);
 
-      // registro do dia
+      // pega a linha do dia
       const { data: existente, error: errSel } = await sb()
         .from("pontos")
-        .select("id, chegada, ini_intervalo, fim_intervalo, saida")
+        .select("id, chegada_ts, ini_intervalo_ts, fim_intervalo_ts, saida_ts")
         .eq("emp_id", id)
-        .eq("data", data)
+        .eq("data", dataDia)
         .maybeSingle();
 
-      if (errSel) {
-        console.error(errSel);
-        return showMsg("Erro ao buscar registro do dia.", false);
-      }
+      if(errSel){ console.error(errSel); return showMsg("Erro ao buscar registro do dia.", false); }
 
-      if (existente && existente[coluna]) {
+      // se já tem batida nesse campo
+      if(existente && existente[colunaTs]){
         return showMsg("Esse horário já foi registrado.", false);
       }
 
       let result;
-      if (existente) {
+      if(existente){
+        // update: manda MARK e o trigger troca por now()
         result = await sb()
           .from("pontos")
-          .update({ [coluna]: hora })
+          .update({ [colunaTs]: MARK })
           .eq("id", existente.id);
       } else {
+        // cria linha do dia com o primeiro ts
         result = await sb()
           .from("pontos")
-          .insert([{ emp_id: id, data, [coluna]: hora }]);
+          .insert([{ emp_id: id, data: dataDia, [colunaTs]: MARK }]);
       }
 
-      if (result.error) {
-        console.error(result.error);
-        return showMsg("Erro ao salvar no banco.", false);
-      }
+      if(result.error){ console.error(result.error); return showMsg("Erro ao salvar.", false); }
 
       showMsg("Registrado com sucesso!", true);
-      renderToday(); // atualiza lista do dia
-    } catch (e) {
+      renderToday();
+    } catch(e){
       console.error(e);
-      showMsg("Erro inesperado ao registrar.", false);
+      showMsg("Erro inesperado.", false);
     }
   }
 
   window.addRegistro = addRegistro;
 
-  document.addEventListener("click", (e) => {
+  document.addEventListener("click", (e)=>{
     const btn = e.target.closest("button[data-type]");
-    if (btn) window.addRegistro(btn.dataset.type);
+    if(btn) window.addRegistro(btn.dataset.type);
   });
 }
 
@@ -300,10 +269,72 @@ if(isAdminPage){
     adminStatus.textContent = text;
   }
 
+  async function renderStaff(){
+    if(!adminList) return;
+    const ok = await checkIsAdmin();
+    if(!ok){ adminList.innerHTML = "Sem permissão."; return; }
+
+    const { data, error } = await sb()
+      .from("funcionarios")
+      .select("emp_id, nome")
+      .order("emp_id", { ascending: true });
+
+    if(error){ console.error(error); adminList.innerHTML = "Erro ao carregar."; return; }
+
+    adminList.innerHTML = (data || []).map(f=>`
+      <div class="staffRow">
+        <div class="staffInfo">
+          <b>#${f.emp_id}</b> — ${f.nome}
+        </div>
+      </div>
+    `).join("") || `<div class="muted small">Nenhum funcionário cadastrado.</div>`;
+  }
+
+  async function renderAdminTable(){
+    if(!tbody) return;
+    const ok = await checkIsAdmin();
+    if(!ok){ tbody.innerHTML = `<tr><td colspan="8">Sem permissão.</td></tr>`; return; }
+
+    const d = filterDate?.value || nowDateBR();
+
+    const { data, error } = await sb()
+      .from("pontos")
+      .select("id, emp_id, data, chegada_ts, ini_intervalo_ts, fim_intervalo_ts, saida_ts, funcionarios(nome)")
+      .eq("data", d)
+      .order("emp_id", { ascending: true });
+
+    if(error){ console.error(error); tbody.innerHTML = `<tr><td colspan="8">Erro ao carregar</td></tr>`; return; }
+
+    const q = norm(filter?.value);
+    const rows = (data || []).filter(r=>{
+      const nome = r.funcionarios?.nome ?? "";
+      return !q || norm(r.emp_id).includes(q) || norm(nome).includes(q);
+    });
+
+    tbody.innerHTML = rows.map(r=>{
+      const nome = r.funcionarios?.nome ?? "-";
+      const horas = secondsToHHMM(calcHorasTrabalhadasTs(r)) || "-";
+      return `
+        <tr>
+          <td>${isoToBR(r.data ?? "") || "-"}</td>
+          <td>#${r.emp_id} — ${nome}</td>
+          <td>${fmtTimeBR(r.chegada_ts)}</td>
+          <td>${fmtTimeBR(r.ini_intervalo_ts)}</td>
+          <td>${fmtTimeBR(r.fim_intervalo_ts)}</td>
+          <td>${fmtTimeBR(r.saida_ts)}</td>
+          <td>${horas}</td>
+          <td></td>
+        </tr>
+      `;
+    }).join("");
+
+    if(!rows.length) tbody.innerHTML = `<tr><td colspan="8">Nenhum registro.</td></tr>`;
+  }
+
   async function syncAuthUI(){
     if(!ensureSb()) return;
 
-    cachedAdmin = null; // reseta cache
+    cachedAdmin = null;
     const { data: sess } = await sb().auth.getSession();
     const user = sess?.session?.user;
 
@@ -317,128 +348,36 @@ if(isAdminPage){
 
     const ok = await checkIsAdmin();
     if(ok){
-      setStatus(`Logado como admin: ${user.email || user.id}`);
+      setStatus(`Admin: ${user.email || user.id}`);
       if(adminLogin) adminLogin.style.display = "none";
       if(adminLogout) adminLogout.style.display = "inline-flex";
       setAdminUIVisible(true);
 
-      // defaults
-      if(filterDate && !filterDate.value) filterDate.value = nowDate();
+      if(filterDate && !filterDate.value) filterDate.value = nowDateBR();
 
       await renderStaff();
       await renderAdminTable();
     } else {
-      setStatus("Logado, mas sem permissão de admin (não está na tabela admins).", false);
+      setStatus("Logado, mas sem permissão (não está na tabela admins).", false);
       if(adminLogin) adminLogin.style.display = "none";
       if(adminLogout) adminLogout.style.display = "inline-flex";
       setAdminUIVisible(false);
     }
   }
 
-  async function renderStaff(){
-    if(!adminList) return;
-    if(!ensureSb()) return;
-
-    const ok = await checkIsAdmin();
-    if(!ok){
-      adminList.innerHTML = "Sem permissão.";
-      return;
-    }
-
-    const { data, error } = await sb()
-      .from("funcionarios")
-      .select("emp_id, nome")
-      .order("emp_id", { ascending: true });
-
-    if(error){
-      console.error(error);
-      adminList.innerHTML = "Erro ao carregar funcionários.";
-      return;
-    }
-
-    adminList.innerHTML = (data || []).map(f=>`
-      <div class="staffRow">
-        <div class="staffInfo">
-          <b>#${f.emp_id}</b> — ${f.nome}
-        </div>
-      </div>
-    `).join("") || `<div class="muted small">Nenhum funcionário cadastrado.</div>`;
-  }
-
-  async function renderAdminTable(){
-    if(!tbody) return;
-    if(!ensureSb()) return;
-
-    const ok = await checkIsAdmin();
-    if(!ok){
-      tbody.innerHTML = `<tr><td colspan="8">Sem permissão.</td></tr>`;
-      return;
-    }
-
-    const d = filterDate?.value || nowDate();
-
-    const { data, error } = await sb()
-      .from("pontos")
-      .select("id, emp_id, data, chegada, ini_intervalo, fim_intervalo, saida, funcionarios(nome)")
-      .eq("data", d)
-      .order("emp_id", { ascending: true });
-
-    if(error){
-      console.error(error);
-      tbody.innerHTML = `<tr><td colspan="8">Erro ao carregar dados</td></tr>`;
-      return;
-    }
-
-    const q = norm(filter?.value);
-    const rows = (data || []).filter(r=>{
-      const nome = r.funcionarios?.nome ?? "";
-      return !q || norm(r.emp_id).includes(q) || norm(nome).includes(q);
-    });
-
-    tbody.innerHTML = rows.map(r=>{
-      const nome = r.funcionarios?.nome ?? "-";
-      const horas = secondsToHHMM(calcHorasTrabalhadas(r)) || "-";
-      return `
-        <tr>
-          <td>${isoToBR(r.data ?? "") || "-"}</td>
-          <td>#${r.emp_id} — ${nome}</td>
-          <td>${hhmm(r.chegada) || "-"}</td>
-          <td>${hhmm(r.ini_intervalo) || "-"}</td>
-          <td>${hhmm(r.fim_intervalo) || "-"}</td>
-          <td>${hhmm(r.saida) || "-"}</td>
-          <td>${horas}</td>
-          <td></td>
-        </tr>
-      `;
-    }).join("");
-
-    if(!rows.length){
-      tbody.innerHTML = `<tr><td colspan="8">Nenhum registro encontrado.</td></tr>`;
-    }
-  }
-
   if(adminLogin){
     adminLogin.onclick = async ()=>{
       try{
-        if(!ensureSb()) return;
-
         const email = String(adminEmail?.value || "").trim();
         const pass = String(adminPass?.value || "").trim();
-        if(!email || !pass){
-          showMsg("Informe email e senha.", false);
-          return;
-        }
+        if(!email || !pass) return showMsg("Informe email e senha.", false);
 
         const { error } = await sb().auth.signInWithPassword({ email, password: pass });
-        if(error){
-          console.error(error);
-          showMsg("Login inválido.", false);
-          return;
-        }
+        if(error){ console.error(error); return showMsg("Login inválido.", false); }
 
         showMsg("Logado.", true);
         await syncAuthUI();
-      }catch(e){
+      } catch(e){
         console.error(e);
         showMsg("Erro no login.", false);
       }
@@ -462,14 +401,8 @@ if(isAdminPage){
       const nome = String(adminNome?.value || "").trim();
       if(!id || !nome) return alert("Preencha ID e nome.");
 
-      const { error } = await sb()
-        .from("funcionarios")
-        .upsert({ emp_id: id, nome });
-
-      if(error){
-        console.error(error);
-        return alert("Erro ao salvar funcionário.");
-      }
+      const { error } = await sb().from("funcionarios").upsert({ emp_id: id, nome });
+      if(error){ console.error(error); return alert("Erro ao salvar funcionário."); }
 
       if(adminId) adminId.value = "";
       if(adminNome) adminNome.value = "";
@@ -477,12 +410,10 @@ if(isAdminPage){
     };
   }
 
-  if(filter){
-    filter.addEventListener("input", () => renderAdminTable());
-  }
+  if(filter) filter.addEventListener("input", ()=> renderAdminTable());
   if(filterDate){
-    filterDate.addEventListener("input", () => renderAdminTable());
-    filterDate.addEventListener("change", () => renderAdminTable());
+    filterDate.addEventListener("input", ()=> renderAdminTable());
+    filterDate.addEventListener("change", ()=> renderAdminTable());
   }
 
   if(exportBtn){
@@ -492,29 +423,26 @@ if(isAdminPage){
 
       const { data, error } = await sb()
         .from("pontos")
-        .select("data, emp_id, chegada, ini_intervalo, fim_intervalo, saida, funcionarios(nome)")
+        .select("data, emp_id, chegada_ts, ini_intervalo_ts, fim_intervalo_ts, saida_ts, funcionarios(nome)")
         .order("data", { ascending: false });
 
-      if(error){
-        console.error(error);
-        return alert("Erro ao exportar.");
-      }
-      if(!data?.length) return alert("Sem dados para exportar.");
+      if(error){ console.error(error); return alert("Erro ao exportar."); }
+      if(!data?.length) return alert("Sem dados.");
 
       const header = ["Data","Funcionário","ID","Chegada","Ini intervalo","Fim intervalo","Saída","Horas"];
       const sep = ";";
 
       const lines = [header.join(sep)].concat(
         data.map(r=>{
-          const horas = secondsToHHMM(calcHorasTrabalhadas(r)) || "";
+          const horas = secondsToHHMM(calcHorasTrabalhadasTs(r)) || "";
           return [
             isoToBR(r.data ?? ""),
             (r.funcionarios?.nome ?? ""),
             (r.emp_id ?? ""),
-            hhmm(r.chegada) || "",
-            hhmm(r.ini_intervalo) || "",
-            hhmm(r.fim_intervalo) || "",
-            hhmm(r.saida) || "",
+            fmtTimeBR(r.chegada_ts) === "-" ? "" : fmtTimeBR(r.chegada_ts),
+            fmtTimeBR(r.ini_intervalo_ts) === "-" ? "" : fmtTimeBR(r.ini_intervalo_ts),
+            fmtTimeBR(r.fim_intervalo_ts) === "-" ? "" : fmtTimeBR(r.fim_intervalo_ts),
+            fmtTimeBR(r.saida_ts) === "-" ? "" : fmtTimeBR(r.saida_ts),
             horas
           ].join(sep);
         })
@@ -524,7 +452,7 @@ if(isAdminPage){
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `ponto_${nowDate()}.csv`;
+      a.download = `ponto_${nowDateBR()}.csv`;
       a.click();
       URL.revokeObjectURL(url);
     };
@@ -534,20 +462,14 @@ if(isAdminPage){
     clearBtn.onclick = async ()=>{
       const ok = await checkIsAdmin();
       if(!ok) return alert("Sem permissão de admin.");
-      if(!confirm("Tem certeza que deseja apagar TODOS os registros?")) return;
+      if(!confirm("Apagar TODOS os registros?")) return;
 
-      const { error } = await sb().from("pontos").delete().neq("id", ""); // apaga tudo
-      if(error){
-        console.error(error);
-        alert("Erro ao limpar.");
-      } else {
-        alert("Registros apagados.");
-        renderAdminTable();
-      }
+      const { error } = await sb().from("pontos").delete().neq("id", "");
+      if(error){ console.error(error); alert("Erro ao limpar."); }
+      else { alert("Registros apagados."); renderAdminTable(); }
     };
   }
 
-  // atualiza UI ao abrir e ao mudar auth
   sb()?.auth?.onAuthStateChange(()=> syncAuthUI());
   syncAuthUI();
 }
