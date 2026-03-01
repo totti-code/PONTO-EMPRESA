@@ -24,7 +24,6 @@
 
   <main class="wrap">
 
-    <!-- LOGIN SUPABASE -->
     <section class="card">
       <h2>Acesso (Supabase)</h2>
 
@@ -41,7 +40,6 @@
       <p id="msg" class="msg"></p>
     </section>
 
-    <!-- CONTEÚDO ADMIN (só aparece se admin verdadeiro) -->
     <section class="card adminOnly" style="display:none;">
       <h2>Cadastro de Funcionários (ID → Nome)</h2>
 
@@ -52,17 +50,14 @@
       </div>
 
       <div id="adminList" class="adminList"></div>
-
-      <p class="muted small" style="margin-top:10px;">
-        Somente IDs cadastrados conseguem bater ponto.
-      </p>
+      <p class="muted small" style="margin-top:10px;">Somente IDs cadastrados conseguem bater ponto.</p>
     </section>
 
     <section class="card adminOnly" style="display:none;">
       <div class="row between">
         <div>
           <h2>Registros</h2>
-          <p class="muted small">Como admin você pode visualizar e exportar.</p>
+          <p class="muted small">Como admin você pode exportar e limpar.</p>
         </div>
 
         <div class="actions">
@@ -99,10 +94,6 @@
           <tbody id="tbody"></tbody>
         </table>
       </div>
-
-      <p class="muted small" style="margin-top:10px;">
-        * O Admin é controlado pelo Supabase Auth + tabela <b>admins</b>.
-      </p>
     </section>
 
   </main>
