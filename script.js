@@ -1,9 +1,15 @@
 const $ = (id) => document.getElementById(id);
-const isAdminPage = location.pathname.includes("admin");
+
+// ✅ detecção confiável (não depende de pathname)
+const isAdminPage = !!document.getElementById("adminLogin");
+const isIndexPage = !!document.getElementById("emp");
 
 function sb(){ return window.supabaseClient; }
 function ensureSb(){
-  if(!sb()){ console.error("Supabase não inicializado."); return false; }
+  if(!sb()){
+    console.error("Supabase não inicializado. Verifique a ordem dos scripts no HTML.");
+    return false;
+  }
   return true;
 }
 
@@ -61,8 +67,16 @@ function calcHorasTrabalhadas(r){
   return total - (intervalo || 0);
 }
 
-function showMsg(text, ok){
-  const msg = $("msg");
+// ✅ mensagens separadas por página
+function showMsgAdmin(text, ok){
+  const msg = $("msgAdmin");
+  if(!msg) return;
+  msg.style.color = ok ? "#22c55e" : "#ef4444";
+  msg.textContent = text;
+  setTimeout(()=> (msg.textContent=""), 4000);
+}
+function showMsgIndex(text, ok){
+  const msg = $("msgIndex");
   if(!msg) return;
   msg.style.color = ok ? "#22c55e" : "#ef4444";
   msg.textContent = text;
@@ -73,7 +87,7 @@ function showMsg(text, ok){
 const yearEl = $("year");
 if(yearEl) yearEl.textContent = new Date().getFullYear();
 
-// ===== Visual clock (só pra mostrar na tela) =====
+// ===== relógio visual (local) =====
 const dateEl = $("date");
 const timeEl = $("time");
 function tick(){
@@ -87,8 +101,10 @@ if(dateEl || timeEl){
 
 // ===== ADMIN CHECK via tabela admins =====
 let cachedAdmin = null;
+
 async function checkIsAdmin(){
   if(!ensureSb()) return false;
+
   const { data: sess } = await sb().auth.getSession();
   const user = sess?.session?.user;
   if(!user) return false;
@@ -102,17 +118,25 @@ async function checkIsAdmin(){
     .eq("user_id", user.id)
     .maybeSingle();
 
-  if(error){ console.error(error); cachedAdmin = false; return false; }
+  if(error){
+    console.error(error);
+    cachedAdmin = false;
+    return false;
+  }
+
   cachedAdmin = !!data?.user_id;
   return cachedAdmin;
 }
+
 function setAdminUIVisible(on){
   document.querySelectorAll(".adminOnly").forEach(el=>{
     el.style.display = on ? "" : "none";
   });
 }
 
-// ===== INDEX: Registros de hoje =====
+// ==========================
+// INDEX: REGISTROS DO DIA
+// ==========================
 const todayTbody = $("todayTbody");
 const todayLabel = $("todayLabel");
 const refreshToday = $("refreshToday");
@@ -167,17 +191,19 @@ if(todayTbody){
   setInterval(renderToday, 20000);
 }
 
-// ===== INDEX: bater ponto (sem mandar hora, só “marca”, trigger troca por hora servidor) =====
+// ==========================
+// INDEX: BATER PONTO
+// ==========================
 const emp = $("emp");
 if(emp){
-  const MARK = "00:00:00"; // qualquer hora, o trigger substitui pela hora do servidor
+  const MARK = "00:00:00"; // trigger substitui pela hora do servidor
 
   async function addRegistro(tipo){
     try{
-      if(!ensureSb()) return showMsg("Supabase não inicializado.", false);
+      if(!ensureSb()) return showMsgIndex("Supabase não inicializado.", false);
 
       const id = String(emp.value || "").trim();
-      if(!id) return showMsg("Informe seu número (ID).", false);
+      if(!id) return showMsgIndex("Informe seu número (ID).", false);
 
       // valida funcionário
       const { data: func, error: errFunc } = await sb()
@@ -186,8 +212,8 @@ if(emp){
         .eq("emp_id", id)
         .maybeSingle();
 
-      if(errFunc){ console.error(errFunc); return showMsg("Erro ao consultar funcionários.", false); }
-      if(!func?.nome) return showMsg("ID não cadastrado. Procure o admin.", false);
+      if(errFunc){ console.error(errFunc); return showMsgIndex("Erro ao consultar funcionários.", false); }
+      if(!func?.nome) return showMsgIndex("ID não cadastrado. Procure o admin.", false);
 
       const dataDia = nowDate();
 
@@ -198,7 +224,7 @@ if(emp){
         SAIDA: "saida",
       })[tipo];
 
-      if(!coluna) return showMsg("Tipo inválido.", false);
+      if(!coluna) return showMsgIndex("Tipo inválido.", false);
 
       // registro do dia
       const { data: existente, error: errSel } = await sb()
@@ -208,10 +234,10 @@ if(emp){
         .eq("data", dataDia)
         .maybeSingle();
 
-      if(errSel){ console.error(errSel); return showMsg("Erro ao buscar registro do dia.", false); }
+      if(errSel){ console.error(errSel); return showMsgIndex("Erro ao buscar registro do dia.", false); }
 
       if(existente && existente[coluna]){
-        return showMsg("Esse horário já foi registrado.", false);
+        return showMsgIndex("Esse horário já foi registrado.", false);
       }
 
       let result;
@@ -226,13 +252,13 @@ if(emp){
           .insert([{ emp_id: id, data: dataDia, [coluna]: MARK }]);
       }
 
-      if(result.error){ console.error(result.error); return showMsg("Erro ao salvar.", false); }
+      if(result.error){ console.error(result.error); return showMsgIndex("Erro ao salvar.", false); }
 
-      showMsg("Registrado com sucesso!", true);
+      showMsgIndex("Registrado com sucesso!", true);
       renderToday();
     } catch(e){
       console.error(e);
-      showMsg("Erro inesperado.", false);
+      showMsgIndex("Erro inesperado.", false);
     }
   }
 
@@ -244,7 +270,9 @@ if(emp){
   });
 }
 
-// ===== ADMIN PAGE =====
+// ==========================
+// ADMIN PAGE
+// ==========================
 if(isAdminPage){
   const adminEmail = $("adminEmail");
   const adminPass = $("adminPass");
@@ -271,6 +299,7 @@ if(isAdminPage){
 
   async function renderStaff(){
     if(!adminList) return;
+
     const ok = await checkIsAdmin();
     if(!ok){ adminList.innerHTML = "Sem permissão."; return; }
 
@@ -292,8 +321,12 @@ if(isAdminPage){
 
   async function renderAdminTable(){
     if(!tbody) return;
+
     const ok = await checkIsAdmin();
-    if(!ok){ tbody.innerHTML = `<tr><td colspan="8">Sem permissão.</td></tr>`; return; }
+    if(!ok){
+      tbody.innerHTML = `<tr><td colspan="8">Sem permissão.</td></tr>`;
+      return;
+    }
 
     const d = filterDate?.value || nowDate();
 
@@ -340,8 +373,8 @@ if(isAdminPage){
 
     if(!user){
       setStatus("Não logado.");
-      if(adminLogin) adminLogin.style.display = "inline-flex";
-      if(adminLogout) adminLogout.style.display = "none";
+      adminLogin.style.display = "inline-flex";
+      adminLogout.style.display = "none";
       setAdminUIVisible(false);
       return;
     }
@@ -349,8 +382,8 @@ if(isAdminPage){
     const ok = await checkIsAdmin();
     if(ok){
       setStatus(`Admin: ${user.email || user.id}`);
-      if(adminLogin) adminLogin.style.display = "none";
-      if(adminLogout) adminLogout.style.display = "inline-flex";
+      adminLogin.style.display = "none";
+      adminLogout.style.display = "inline-flex";
       setAdminUIVisible(true);
 
       if(filterDate && !filterDate.value) filterDate.value = nowDate();
@@ -359,40 +392,46 @@ if(isAdminPage){
       await renderAdminTable();
     } else {
       setStatus("Logado, mas sem permissão (não está na tabela admins).", false);
-      if(adminLogin) adminLogin.style.display = "none";
-      if(adminLogout) adminLogout.style.display = "inline-flex";
+      adminLogin.style.display = "none";
+      adminLogout.style.display = "inline-flex";
       setAdminUIVisible(false);
     }
   }
 
-  if (adminLogin) {
-  adminLogin.onclick = async () => {
-    try {
-      const email = String(adminEmail?.value || "").trim();
-      const pass  = String(adminPass?.value  || "").trim();
+  if(adminLogin){
+    adminLogin.onclick = async () => {
+      try {
+        if(!ensureSb()) return showMsgAdmin("Supabase não inicializado.", false);
 
-      if (!email || !pass) return showMsg("Informe email e senha.", false);
+        const email = String(adminEmail?.value || "").trim();
+        const pass  = String(adminPass?.value  || "").trim();
 
-      const { error } = await sb().auth.signInWithPassword({ email, password: pass });
+        if (!email || !pass) return showMsgAdmin("Informe email e senha.", false);
 
-      if (error) {
-        console.error(error);
-        return showMsg("Login inválido.", false);
+        // Mostra erro real do Supabase
+        const { data, error } = await sb().auth.signInWithPassword({ email, password: pass });
+        if (error) {
+          console.error(error);
+          return showMsgAdmin(error.message || "Login inválido.", false);
+        }
+
+        if(!data?.session){
+          return showMsgAdmin("Login não gerou sessão. Verifique o usuário.", false);
+        }
+
+        showMsgAdmin("Logado.", true);
+        await syncAuthUI();
+      } catch (e) {
+        console.error(e);
+        showMsgAdmin("Erro no login.", false);
       }
-
-      showMsg("Logado.", true);
-      await syncAuthUI();
-    } catch (e) {
-      console.error(e);
-      showMsg("Erro no login.", false);
-    }
-  };
-}
+    };
+  }
 
   if(adminLogout){
     adminLogout.onclick = async ()=>{
       await sb().auth.signOut();
-      showMsg("Saiu.", true);
+      showMsgAdmin("Saiu.", true);
       await syncAuthUI();
     };
   }
