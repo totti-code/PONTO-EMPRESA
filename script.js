@@ -1,27 +1,52 @@
 const $ = (id) => document.getElementById(id);
 const isAdminPage = location.pathname.includes("admin");
 
-// ===== UTILS =====
+function sb(){ return window.supabaseClient; }
+function ensureSb(){
+  if(!sb()){ console.error("Supabase não inicializado."); return false; }
+  return true;
+}
+
 function pad(n){ return String(n).padStart(2,"0"); }
-function nowDateBR(){
-  // dia local do navegador (Brasil)
+function nowDate(){
   const d = new Date();
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 }
-function norm(s){ return String(s ?? "").toLowerCase().trim(); }
+function nowTime(){
+  const d = new Date();
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
 function isoToBR(iso){
   if(!iso) return "";
   const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if(!m) return String(iso);
   return `${m[3]}/${m[2]}/${m[1]}`;
 }
-function fmtTimeBR(ts){
-  if(!ts) return "-";
-  return new Date(ts).toLocaleTimeString("pt-BR", {
-    timeZone: "America/Fortaleza",
-    hour: "2-digit",
-    minute: "2-digit"
-  });
+function norm(s){ return String(s ?? "").toLowerCase().trim(); }
+
+function hhmm(t){
+  if(!t) return "";
+  const s = String(t).split("+")[0];
+  const parts = s.split(":");
+  if(parts.length < 2) return s;
+  return `${parts[0].padStart(2,"0")}:${parts[1].padStart(2,"0")}`;
+}
+
+function timeToSeconds(t){
+  if(!t) return null;
+  t = String(t).split("+")[0];
+  const parts = t.split(":").map(Number);
+  if(parts.length < 2) return null;
+  const [hh, mm, ss = 0] = parts;
+  return hh*3600 + mm*60 + ss;
+}
+function diffSeconds(start, end){
+  const s = timeToSeconds(start);
+  const e = timeToSeconds(end);
+  if(s == null || e == null) return null;
+  let d = e - s;
+  if(d < 0) d += 86400;
+  return d;
 }
 function secondsToHHMM(total){
   if(total == null || total < 0) return "";
@@ -29,21 +54,13 @@ function secondsToHHMM(total){
   const mm = Math.floor((total % 3600) / 60);
   return `${String(hh).padStart(2,"0")}:${String(mm).padStart(2,"0")}`;
 }
-function diffSecondsTs(startTs, endTs){
-  if(!startTs || !endTs) return null;
-  const s = new Date(startTs).getTime();
-  const e = new Date(endTs).getTime();
-  if(Number.isNaN(s) || Number.isNaN(e)) return null;
-  let d = Math.floor((e - s) / 1000);
-  if(d < 0) d += 86400;
-  return d;
-}
-function calcHorasTrabalhadasTs(r){
-  const total = diffSecondsTs(r.chegada_ts, r.saida_ts);
+function calcHorasTrabalhadas(r){
+  const total = diffSeconds(r.chegada, r.saida);
   if(total == null) return null;
-  const intervalo = diffSecondsTs(r.ini_intervalo_ts, r.fim_intervalo_ts);
+  const intervalo = diffSeconds(r.ini_intervalo, r.fim_intervalo);
   return total - (intervalo || 0);
 }
+
 function showMsg(text, ok){
   const msg = $("msg");
   if(!msg) return;
@@ -51,21 +68,27 @@ function showMsg(text, ok){
   msg.textContent = text;
   setTimeout(()=> (msg.textContent=""), 2500);
 }
-function sb(){ return window.supabaseClient; }
-function ensureSb(){
-  if(!sb()){ console.error("Supabase não inicializado."); return false; }
-  return true;
-}
 
-// ===== YEAR =====
+// ===== Year =====
 const yearEl = $("year");
 if(yearEl) yearEl.textContent = new Date().getFullYear();
 
-// ===== ADMIN CHECK =====
+// ===== Visual clock (só pra mostrar na tela) =====
+const dateEl = $("date");
+const timeEl = $("time");
+function tick(){
+  if(dateEl) dateEl.value = nowDate();
+  if(timeEl) timeEl.value = nowTime();
+}
+if(dateEl || timeEl){
+  tick();
+  setInterval(tick, 1000);
+}
+
+// ===== ADMIN CHECK via tabela admins =====
 let cachedAdmin = null;
 async function checkIsAdmin(){
   if(!ensureSb()) return false;
-
   const { data: sess } = await sb().auth.getSession();
   const user = sess?.session?.user;
   if(!user) return false;
@@ -89,26 +112,7 @@ function setAdminUIVisible(on){
   });
 }
 
-// ===== INDEX CLOCK DISPLAY (apenas visual) =====
-const dateEl = $("date");
-const timeEl = $("time");
-function tickVisualClock(){
-  const d = new Date();
-  if(dateEl) dateEl.value = nowDateBR();
-  if(timeEl){
-    // só visual, não é usado pra salvar
-    const hh = pad(d.getHours());
-    const mm = pad(d.getMinutes());
-    const ss = pad(d.getSeconds());
-    timeEl.value = `${hh}:${mm}:${ss}`;
-  }
-}
-if(dateEl || timeEl){
-  tickVisualClock();
-  setInterval(tickVisualClock, 1000);
-}
-
-// ===== INDEX: LISTA DE HOJE =====
+// ===== INDEX: Registros de hoje =====
 const todayTbody = $("todayTbody");
 const todayLabel = $("todayLabel");
 const refreshToday = $("refreshToday");
@@ -120,12 +124,12 @@ async function renderToday(){
     return;
   }
 
-  const d = nowDateBR();
+  const d = nowDate();
   if(todayLabel) todayLabel.textContent = `Dia: ${isoToBR(d)}`;
 
   const { data, error } = await sb()
     .from("pontos")
-    .select("id, emp_id, data, chegada_ts, ini_intervalo_ts, fim_intervalo_ts, saida_ts, funcionarios(nome)")
+    .select("id, emp_id, data, chegada, ini_intervalo, fim_intervalo, saida, funcionarios(nome)")
     .eq("data", d)
     .order("emp_id", { ascending: true });
 
@@ -143,14 +147,14 @@ async function renderToday(){
 
   todayTbody.innerHTML = rows.map(r=>{
     const nome = r.funcionarios?.nome ? `#${r.emp_id} ${r.funcionarios.nome}` : `#${r.emp_id}`;
-    const horas = secondsToHHMM(calcHorasTrabalhadasTs(r)) || "-";
+    const horas = secondsToHHMM(calcHorasTrabalhadas(r)) || "-";
     return `
       <tr>
         <td class="tdName" title="${nome}">${nome}</td>
-        <td>${fmtTimeBR(r.chegada_ts)}</td>
-        <td>${fmtTimeBR(r.ini_intervalo_ts)}</td>
-        <td>${fmtTimeBR(r.fim_intervalo_ts)}</td>
-        <td>${fmtTimeBR(r.saida_ts)}</td>
+        <td>${hhmm(r.chegada) || "-"}</td>
+        <td>${hhmm(r.ini_intervalo) || "-"}</td>
+        <td>${hhmm(r.fim_intervalo) || "-"}</td>
+        <td>${hhmm(r.saida) || "-"}</td>
         <td>${horas}</td>
       </tr>
     `;
@@ -163,11 +167,10 @@ if(todayTbody){
   setInterval(renderToday, 20000);
 }
 
-// ===== INDEX: REGISTRAR PONTO (hora do servidor via trigger) =====
+// ===== INDEX: bater ponto (sem mandar hora, só “marca”, trigger troca por hora servidor) =====
 const emp = $("emp");
-
 if(emp){
-  const MARK = "1970-01-01T00:00:00Z"; // gatilho, o servidor troca por now()
+  const MARK = "00:00:00"; // qualquer hora, o trigger substitui pela hora do servidor
 
   async function addRegistro(tipo){
     try{
@@ -186,44 +189,41 @@ if(emp){
       if(errFunc){ console.error(errFunc); return showMsg("Erro ao consultar funcionários.", false); }
       if(!func?.nome) return showMsg("ID não cadastrado. Procure o admin.", false);
 
-      const dataDia = nowDateBR();
+      const dataDia = nowDate();
 
-      const colunaTs = ({
-        CHEGADA: "chegada_ts",
-        INI_INTERVALO: "ini_intervalo_ts",
-        FIM_INTERVALO: "fim_intervalo_ts",
-        SAIDA: "saida_ts",
+      const coluna = ({
+        CHEGADA: "chegada",
+        INI_INTERVALO: "ini_intervalo",
+        FIM_INTERVALO: "fim_intervalo",
+        SAIDA: "saida",
       })[tipo];
 
-      if(!colunaTs) return showMsg("Tipo inválido.", false);
+      if(!coluna) return showMsg("Tipo inválido.", false);
 
-      // pega a linha do dia
+      // registro do dia
       const { data: existente, error: errSel } = await sb()
         .from("pontos")
-        .select("id, chegada_ts, ini_intervalo_ts, fim_intervalo_ts, saida_ts")
+        .select("id, chegada, ini_intervalo, fim_intervalo, saida")
         .eq("emp_id", id)
         .eq("data", dataDia)
         .maybeSingle();
 
       if(errSel){ console.error(errSel); return showMsg("Erro ao buscar registro do dia.", false); }
 
-      // se já tem batida nesse campo
-      if(existente && existente[colunaTs]){
+      if(existente && existente[coluna]){
         return showMsg("Esse horário já foi registrado.", false);
       }
 
       let result;
       if(existente){
-        // update: manda MARK e o trigger troca por now()
         result = await sb()
           .from("pontos")
-          .update({ [colunaTs]: MARK })
+          .update({ [coluna]: MARK })
           .eq("id", existente.id);
       } else {
-        // cria linha do dia com o primeiro ts
         result = await sb()
           .from("pontos")
-          .insert([{ emp_id: id, data: dataDia, [colunaTs]: MARK }]);
+          .insert([{ emp_id: id, data: dataDia, [coluna]: MARK }]);
       }
 
       if(result.error){ console.error(result.error); return showMsg("Erro ao salvar.", false); }
@@ -295,11 +295,11 @@ if(isAdminPage){
     const ok = await checkIsAdmin();
     if(!ok){ tbody.innerHTML = `<tr><td colspan="8">Sem permissão.</td></tr>`; return; }
 
-    const d = filterDate?.value || nowDateBR();
+    const d = filterDate?.value || nowDate();
 
     const { data, error } = await sb()
       .from("pontos")
-      .select("id, emp_id, data, chegada_ts, ini_intervalo_ts, fim_intervalo_ts, saida_ts, funcionarios(nome)")
+      .select("id, emp_id, data, chegada, ini_intervalo, fim_intervalo, saida, funcionarios(nome)")
       .eq("data", d)
       .order("emp_id", { ascending: true });
 
@@ -313,15 +313,15 @@ if(isAdminPage){
 
     tbody.innerHTML = rows.map(r=>{
       const nome = r.funcionarios?.nome ?? "-";
-      const horas = secondsToHHMM(calcHorasTrabalhadasTs(r)) || "-";
+      const horas = secondsToHHMM(calcHorasTrabalhadas(r)) || "-";
       return `
         <tr>
           <td>${isoToBR(r.data ?? "") || "-"}</td>
           <td>#${r.emp_id} — ${nome}</td>
-          <td>${fmtTimeBR(r.chegada_ts)}</td>
-          <td>${fmtTimeBR(r.ini_intervalo_ts)}</td>
-          <td>${fmtTimeBR(r.fim_intervalo_ts)}</td>
-          <td>${fmtTimeBR(r.saida_ts)}</td>
+          <td>${hhmm(r.chegada) || "-"}</td>
+          <td>${hhmm(r.ini_intervalo) || "-"}</td>
+          <td>${hhmm(r.fim_intervalo) || "-"}</td>
+          <td>${hhmm(r.saida) || "-"}</td>
           <td>${horas}</td>
           <td></td>
         </tr>
@@ -353,7 +353,7 @@ if(isAdminPage){
       if(adminLogout) adminLogout.style.display = "inline-flex";
       setAdminUIVisible(true);
 
-      if(filterDate && !filterDate.value) filterDate.value = nowDateBR();
+      if(filterDate && !filterDate.value) filterDate.value = nowDate();
 
       await renderStaff();
       await renderAdminTable();
@@ -423,7 +423,7 @@ if(isAdminPage){
 
       const { data, error } = await sb()
         .from("pontos")
-        .select("data, emp_id, chegada_ts, ini_intervalo_ts, fim_intervalo_ts, saida_ts, funcionarios(nome)")
+        .select("data, emp_id, chegada, ini_intervalo, fim_intervalo, saida, funcionarios(nome)")
         .order("data", { ascending: false });
 
       if(error){ console.error(error); return alert("Erro ao exportar."); }
@@ -434,15 +434,15 @@ if(isAdminPage){
 
       const lines = [header.join(sep)].concat(
         data.map(r=>{
-          const horas = secondsToHHMM(calcHorasTrabalhadasTs(r)) || "";
+          const horas = secondsToHHMM(calcHorasTrabalhadas(r)) || "";
           return [
             isoToBR(r.data ?? ""),
             (r.funcionarios?.nome ?? ""),
             (r.emp_id ?? ""),
-            fmtTimeBR(r.chegada_ts) === "-" ? "" : fmtTimeBR(r.chegada_ts),
-            fmtTimeBR(r.ini_intervalo_ts) === "-" ? "" : fmtTimeBR(r.ini_intervalo_ts),
-            fmtTimeBR(r.fim_intervalo_ts) === "-" ? "" : fmtTimeBR(r.fim_intervalo_ts),
-            fmtTimeBR(r.saida_ts) === "-" ? "" : fmtTimeBR(r.saida_ts),
+            hhmm(r.chegada) || "",
+            hhmm(r.ini_intervalo) || "",
+            hhmm(r.fim_intervalo) || "",
+            hhmm(r.saida) || "",
             horas
           ].join(sep);
         })
@@ -452,7 +452,7 @@ if(isAdminPage){
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `ponto_${nowDateBR()}.csv`;
+      a.download = `ponto_${nowDate()}.csv`;
       a.click();
       URL.revokeObjectURL(url);
     };
