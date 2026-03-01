@@ -31,13 +31,13 @@
         <input id="adminEmail" type="email" placeholder="Email do admin" autocomplete="username" />
         <input id="adminPass" type="password" placeholder="Senha do admin" autocomplete="current-password" />
         <div class="adminBtns">
-          <button id="adminLogin" class="btn">Entrar</button>
-          <button id="adminLogout" class="btn ghost" style="display:none;">Sair</button>
+          <button id="adminLogin" class="btn" type="button">Entrar</button>
+          <button id="adminLogout" class="btn ghost" type="button" style="display:none;">Sair</button>
         </div>
       </div>
 
       <p id="adminStatus" class="muted small" style="margin:10px 0 0;"></p>
-      <p id="msg" class="msg"></p>
+      <p id="msgAdmin" class="msg"></p>
     </section>
 
     <section class="card adminOnly" style="display:none;">
@@ -46,7 +46,7 @@
       <div class="adminAddRow">
         <input id="adminId" type="number" placeholder="Número (ex: 1)" inputmode="numeric" />
         <input id="adminNome" type="text" placeholder="Nome (ex: Ismael)" />
-        <button id="adminAdd" class="btn">Cadastrar</button>
+        <button id="adminAdd" class="btn" type="button">Cadastrar</button>
       </div>
 
       <div id="adminList" class="adminList"></div>
@@ -61,8 +61,8 @@
         </div>
 
         <div class="actions">
-          <button id="export" class="btn ghost">Exportar CSV</button>
-          <button id="clear" class="btn ghost">Limpar tudo</button>
+          <button id="export" class="btn ghost" type="button">Exportar CSV</button>
+          <button id="clear" class="btn ghost" type="button">Limpar tudo</button>
         </div>
       </div>
 
@@ -109,6 +109,7 @@
     window.supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
   </script>
 
-  <script src="script.js"></script>
+  <!-- quebra cache do GitHub Pages -->
+  <script src="script.js?v=9"></script>
 </body>
 </html>
