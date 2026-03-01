@@ -3,21 +3,107 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Admin Teste</title>
+  <title>Admin | Ponto</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
-<body style="font-family:system-ui; padding:20px">
-  <h1>Admin Teste</h1>
+<body>
 
-  <p>
-    <input id="adminEmail" type="email" placeholder="Email" style="padding:10px; width:320px">
-  </p>
-  <p>
-    <input id="adminPass" type="password" placeholder="Senha" style="padding:10px; width:320px">
-  </p>
+  <header class="top">
+    <div class="topInner">
+      <div class="topTitle">
+        <h1>Admin</h1>
+        <p class="muted">Cadastros • Controle • Registros</p>
+      </div>
 
-  <button id="adminLogin" style="padding:10px 16px">Entrar</button>
+      <nav class="menu">
+        <a class="menuLink" href="index.html">Registrar ponto</a>
+        <a class="menuLink active" href="admin.html">Admin</a>
+      </nav>
+    </div>
+  </header>
 
-  <pre id="out" style="background:#111;color:#0f0;padding:10px;margin-top:15px;white-space:pre-wrap"></pre>
+  <main class="wrap">
+
+    <section class="card">
+      <h2>Acesso (Supabase)</h2>
+
+      <div class="adminAccess">
+        <input id="adminEmail" type="email" placeholder="Email do admin" autocomplete="username" />
+        <input id="adminPass" type="password" placeholder="Senha do admin" autocomplete="current-password" />
+        <div class="adminBtns">
+          <button id="adminLogin" class="btn" type="button">Entrar</button>
+          <button id="adminLogout" class="btn ghost" type="button" style="display:none;">Sair</button>
+        </div>
+      </div>
+
+      <p id="adminStatus" class="muted small" style="margin:10px 0 0;"></p>
+      <p id="msgAdmin" class="msg"></p>
+    </section>
+
+    <section class="card adminOnly" style="display:none;">
+      <h2>Cadastro de Funcionários (ID → Nome)</h2>
+
+      <div class="adminAddRow">
+        <input id="adminId" type="number" placeholder="Número (ex: 1)" inputmode="numeric" />
+        <input id="adminNome" type="text" placeholder="Nome (ex: Ismael)" />
+        <button id="adminAdd" class="btn" type="button">Cadastrar</button>
+      </div>
+
+      <div id="adminList" class="adminList"></div>
+
+      <p class="muted small" style="margin-top:10px;">
+        Somente IDs cadastrados conseguem bater ponto.
+      </p>
+    </section>
+
+    <section class="card adminOnly" style="display:none;">
+      <div class="row between">
+        <div>
+          <h2>Registros</h2>
+          <p class="muted small">Como admin você pode exportar e limpar.</p>
+        </div>
+
+        <div class="actions">
+          <button id="export" class="btn ghost" type="button">Exportar CSV</button>
+          <button id="clear" class="btn ghost" type="button">Limpar tudo</button>
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>Filtrar (Nome ou ID)</label>
+          <input id="filter" placeholder="Digite para filtrar..." />
+        </div>
+        <div>
+          <label>Filtrar data</label>
+          <input id="filterDate" type="date" />
+        </div>
+      </div>
+
+      <div class="tableWrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Funcionário</th>
+              <th>Cheg</th>
+              <th>Ini Int</th>
+              <th>Fim Int</th>
+              <th>Saída</th>
+              <th>Horas</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="foot">
+    <span class="muted small">© <span id="year"></span> Empresa</span>
+  </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
@@ -26,6 +112,7 @@
     window.supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
   </script>
 
-  <script src="script.js?v=99999"></script>
+  <!-- quebra cache do GitHub Pages -->
+  <script src="script.js?v=10"></script>
 </body>
 </html>
