@@ -24,11 +24,13 @@
 
   <main class="wrap">
 
+    <!-- LOGIN SUPABASE -->
     <section class="card">
-      <h2>Acesso</h2>
+      <h2>Acesso (Supabase)</h2>
 
       <div class="adminAccess">
-        <input id="adminPass" type="password" placeholder="Senha do admin" />
+        <input id="adminEmail" type="email" placeholder="Email do admin" autocomplete="username" />
+        <input id="adminPass" type="password" placeholder="Senha do admin" autocomplete="current-password" />
         <div class="adminBtns">
           <button id="adminLogin" class="btn">Entrar</button>
           <button id="adminLogout" class="btn ghost" style="display:none;">Sair</button>
@@ -39,7 +41,8 @@
       <p id="msg" class="msg"></p>
     </section>
 
-    <section class="card">
+    <!-- CONTEÚDO ADMIN (só aparece se admin verdadeiro) -->
+    <section class="card adminOnly" style="display:none;">
       <h2>Cadastro de Funcionários (ID → Nome)</h2>
 
       <div class="adminAddRow">
@@ -55,11 +58,11 @@
       </p>
     </section>
 
-    <section class="card">
+    <section class="card adminOnly" style="display:none;">
       <div class="row between">
         <div>
           <h2>Registros</h2>
-          <p class="muted small">Como admin você pode excluir linhas e limpar tudo.</p>
+          <p class="muted small">Como admin você pode visualizar e exportar.</p>
         </div>
 
         <div class="actions">
@@ -82,21 +85,24 @@
       <div class="tableWrap">
         <table>
           <thead>
-     <tr>
-        <th>Data</th>
-        <th>Funcionário</th>
-        <th>Chegada</th>
-        <th>Início intervalo</th>
-        <th>Fim intervalo</th>
-        <th>Saída</th>
-        <th>Horas</th>
-        <th></th>
-  </tr>
-</thead>
-          
+            <tr>
+              <th>Data</th>
+              <th>Funcionário</th>
+              <th>Cheg</th>
+              <th>Ini Int</th>
+              <th>Fim Int</th>
+              <th>Saída</th>
+              <th>Horas</th>
+              <th></th>
+            </tr>
+          </thead>
           <tbody id="tbody"></tbody>
         </table>
       </div>
+
+      <p class="muted small" style="margin-top:10px;">
+        * O Admin é controlado pelo Supabase Auth + tabela <b>admins</b>.
+      </p>
     </section>
 
   </main>
