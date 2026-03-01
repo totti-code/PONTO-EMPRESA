@@ -1,13 +1,13 @@
 const $ = (id) => document.getElementById(id);
 
-// ✅ detecção confiável (não depende do pathname)
+// detecção confiável
 const isAdminPage = !!document.getElementById("adminLogin");
 const isIndexPage = !!document.getElementById("emp");
 
 function sb(){ return window.supabaseClient; }
 function ensureSb(){
   if(!sb()){
-    console.error("Supabase não inicializado. Verifique a ordem dos scripts no HTML.");
+    console.error("Supabase não inicializado.");
     return false;
   }
   return true;
@@ -40,8 +40,7 @@ function hhmm(t){
 
 function timeToSeconds(t){
   if(!t) return null;
-  t = String(t).split("+")[0];
-  const parts = t.split(":").map(Number);
+  const parts = String(t).split("+")[0].split(":").map(Number);
   if(parts.length < 2) return null;
   const [hh, mm, ss = 0] = parts;
   return hh*3600 + mm*60 + ss;
@@ -67,27 +66,26 @@ function calcHorasTrabalhadas(r){
   return total - (intervalo || 0);
 }
 
-// ✅ Mensagens separadas (pra não sumir)
-function showMsgAdmin(text, ok){
-  const msg = $("msgAdmin");
-  if(!msg) return;
-  msg.style.color = ok ? "#22c55e" : "#ef4444";
-  msg.textContent = text;
-  setTimeout(()=> (msg.textContent=""), 4500);
-}
 function showMsgIndex(text, ok){
-  const msg = $("msgIndex");
-  if(!msg) return;
-  msg.style.color = ok ? "#22c55e" : "#ef4444";
-  msg.textContent = text;
-  setTimeout(()=> (msg.textContent=""), 2500);
+  const el = $("msgIndex");
+  if(!el) return;
+  el.style.color = ok ? "#22c55e" : "#ef4444";
+  el.textContent = text;
+  setTimeout(()=> (el.textContent=""), 2500);
+}
+function showMsgAdmin(text, ok){
+  const el = $("msgAdmin");
+  if(!el) return;
+  el.style.color = ok ? "#22c55e" : "#ef4444";
+  el.textContent = text;
+  setTimeout(()=> (el.textContent=""), 4500);
 }
 
-// ===== Year =====
+// year
 const yearEl = $("year");
 if(yearEl) yearEl.textContent = new Date().getFullYear();
 
-// ===== relógio visual (local) =====
+// relógio visual
 const dateEl = $("date");
 const timeEl = $("time");
 function tick(){
@@ -99,45 +97,7 @@ if(dateEl || timeEl){
   setInterval(tick, 1000);
 }
 
-// ===== ADMIN CHECK via tabela admins =====
-let cachedAdmin = null;
-
-async function checkIsAdmin(){
-  if(!ensureSb()) return false;
-
-  const { data: sess } = await sb().auth.getSession();
-  const user = sess?.session?.user;
-  if(!user) return false;
-
-  // cache só por sessão
-  if(cachedAdmin === true) return true;
-  if(cachedAdmin === false) return false;
-
-  const { data, error } = await sb()
-    .from("admins")
-    .select("user_id")
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if(error){
-    console.error(error);
-    cachedAdmin = false;
-    return false;
-  }
-
-  cachedAdmin = !!data?.user_id;
-  return cachedAdmin;
-}
-
-function setAdminUIVisible(on){
-  document.querySelectorAll(".adminOnly").forEach(el=>{
-    el.style.display = on ? "" : "none";
-  });
-}
-
-// ==========================
-// INDEX: REGISTROS DO DIA
-// ==========================
+// ===== INDEX: tabela do dia =====
 const todayTbody = $("todayTbody");
 const todayLabel = $("todayLabel");
 const refreshToday = $("refreshToday");
@@ -154,7 +114,7 @@ async function renderToday(){
 
   const { data, error } = await sb()
     .from("pontos")
-    .select("id, emp_id, data, chegada, ini_intervalo, fim_intervalo, saida, funcionarios(nome)")
+    .select("emp_id, data, chegada, ini_intervalo, fim_intervalo, saida, funcionarios(nome)")
     .eq("data", d)
     .order("emp_id", { ascending: true });
 
@@ -164,7 +124,7 @@ async function renderToday(){
     return;
   }
 
-  const rows = (data || []);
+  const rows = data || [];
   if(!rows.length){
     todayTbody.innerHTML = `<tr><td colspan="6">Nenhum registro hoje.</td></tr>`;
     return;
@@ -192,13 +152,9 @@ if(todayTbody){
   setInterval(renderToday, 20000);
 }
 
-// ==========================
-// INDEX: BATER PONTO
-// ==========================
+// ===== INDEX: bater ponto =====
 const emp = $("emp");
 if(emp){
-  const MARK = "00:00:00"; // trigger substitui pela hora do servidor
-
   async function addRegistro(tipo){
     try{
       if(!ensureSb()) return showMsgIndex("Supabase não inicializado.", false);
@@ -217,6 +173,7 @@ if(emp){
       if(!func?.nome) return showMsgIndex("ID não cadastrado. Procure o admin.", false);
 
       const dataDia = nowDate();
+      const hora = nowTime();
 
       const coluna = ({
         CHEGADA: "chegada",
@@ -227,7 +184,6 @@ if(emp){
 
       if(!coluna) return showMsgIndex("Tipo inválido.", false);
 
-      // registro do dia
       const { data: existente, error: errSel } = await sb()
         .from("pontos")
         .select("id, chegada, ini_intervalo, fim_intervalo, saida")
@@ -243,14 +199,9 @@ if(emp){
 
       let result;
       if(existente){
-        result = await sb()
-          .from("pontos")
-          .update({ [coluna]: MARK })
-          .eq("id", existente.id);
+        result = await sb().from("pontos").update({ [coluna]: hora }).eq("id", existente.id);
       } else {
-        result = await sb()
-          .from("pontos")
-          .insert([{ emp_id: id, data: dataDia, [coluna]: MARK }]);
+        result = await sb().from("pontos").insert([{ emp_id: id, data: dataDia, [coluna]: hora }]);
       }
 
       if(result.error){ console.error(result.error); return showMsgIndex("Erro ao salvar.", false); }
@@ -271,9 +222,7 @@ if(emp){
   });
 }
 
-// ==========================
-// ADMIN PAGE
-// ==========================
+// ===== ADMIN PAGE =====
 if(isAdminPage){
   const adminEmail = $("adminEmail");
   const adminPass = $("adminPass");
@@ -281,28 +230,73 @@ if(isAdminPage){
   const adminLogout = $("adminLogout");
   const adminStatus = $("adminStatus");
 
-  const filter = $("filter");
-  const filterDate = $("filterDate");
-  const tbody = $("tbody");
-  const exportBtn = $("export");
-  const clearBtn = $("clear");
-
   const adminId = $("adminId");
   const adminNome = $("adminNome");
   const adminAdd = $("adminAdd");
   const adminList = $("adminList");
 
-  function setStatus(text, ok=true){
-    if(!adminStatus) return;
-    adminStatus.style.color = ok ? "" : "#ef4444";
-    adminStatus.textContent = text;
+  const filter = $("filter");
+  const filterDate = $("filterDate");
+  const tbody = $("tbody");
+
+  const exportBtn = $("export");
+  const clearBtn = $("clear");
+
+  function setAdminUIVisible(on){
+    document.querySelectorAll(".adminOnly").forEach(el=>{
+      el.style.display = on ? "" : "none";
+    });
+  }
+
+  async function checkIsAdmin(){
+    const { data: sess } = await sb().auth.getSession();
+    const user = sess?.session?.user;
+    if(!user) return false;
+
+    const { data, error } = await sb()
+      .from("admins")
+      .select("user_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if(error){ console.error(error); return false; }
+    return !!data?.user_id;
+  }
+
+  async function syncAuthUI(){
+    const { data: sess } = await sb().auth.getSession();
+    const user = sess?.session?.user;
+
+    if(!user){
+      adminStatus.textContent = "Não logado.";
+      adminLogin.style.display = "inline-flex";
+      adminLogout.style.display = "none";
+      setAdminUIVisible(false);
+      return;
+    }
+
+    const ok = await checkIsAdmin();
+    if(ok){
+      adminStatus.textContent = `Admin: ${user.email || user.id}`;
+      adminLogin.style.display = "none";
+      adminLogout.style.display = "inline-flex";
+      setAdminUIVisible(true);
+
+      if(filterDate && !filterDate.value) filterDate.value = nowDate();
+      await renderStaff();
+      await renderAdminTable();
+    } else {
+      adminStatus.textContent = "Logado, mas sem permissão (não está na tabela admins).";
+      adminStatus.style.color = "#ef4444";
+      adminLogin.style.display = "none";
+      adminLogout.style.display = "inline-flex";
+      setAdminUIVisible(false);
+      showMsgAdmin("Seu UUID precisa estar em public.admins.", false);
+    }
   }
 
   async function renderStaff(){
     if(!adminList) return;
-
-    const ok = await checkIsAdmin();
-    if(!ok){ adminList.innerHTML = "Sem permissão."; return; }
 
     const { data, error } = await sb()
       .from("funcionarios")
@@ -323,23 +317,21 @@ if(isAdminPage){
   async function renderAdminTable(){
     if(!tbody) return;
 
-    const ok = await checkIsAdmin();
-    if(!ok){
-      tbody.innerHTML = `<tr><td colspan="8">Sem permissão.</td></tr>`;
-      return;
-    }
-
     const d = filterDate?.value || nowDate();
+    const q = norm(filter?.value);
 
     const { data, error } = await sb()
       .from("pontos")
-      .select("id, emp_id, data, chegada, ini_intervalo, fim_intervalo, saida, funcionarios(nome)")
+      .select("emp_id, data, chegada, ini_intervalo, fim_intervalo, saida, funcionarios(nome)")
       .eq("data", d)
       .order("emp_id", { ascending: true });
 
-    if(error){ console.error(error); tbody.innerHTML = `<tr><td colspan="8">Erro ao carregar</td></tr>`; return; }
+    if(error){
+      console.error(error);
+      tbody.innerHTML = `<tr><td colspan="8">Erro ao carregar</td></tr>`;
+      return;
+    }
 
-    const q = norm(filter?.value);
     const rows = (data || []).filter(r=>{
       const nome = r.funcionarios?.nome ?? "";
       return !q || norm(r.emp_id).includes(q) || norm(nome).includes(q);
@@ -365,163 +357,90 @@ if(isAdminPage){
     if(!rows.length) tbody.innerHTML = `<tr><td colspan="8">Nenhum registro.</td></tr>`;
   }
 
-  async function syncAuthUI(){
-    if(!ensureSb()) return;
+  adminLogin.addEventListener("click", async ()=>{
+    try{
+      const email = String(adminEmail.value || "").trim();
+      const pass  = String(adminPass.value  || "").trim();
+      if(!email || !pass) return showMsgAdmin("Informe email e senha.", false);
 
-    cachedAdmin = null;
+      const res = await sb().auth.signInWithPassword({ email, password: pass });
+      if(res.error) return showMsgAdmin(res.error.message || "Login inválido.", false);
 
-    const { data: sess } = await sb().auth.getSession();
-    const user = sess?.session?.user;
-
-    if(!user){
-      setStatus("Não logado.");
-      if(adminLogin) adminLogin.style.display = "inline-flex";
-      if(adminLogout) adminLogout.style.display = "none";
-      setAdminUIVisible(false);
-      return;
-    }
-
-    const ok = await checkIsAdmin();
-    if(ok){
-      setStatus(`Admin: ${user.email || user.id}`);
-      if(adminLogin) adminLogin.style.display = "none";
-      if(adminLogout) adminLogout.style.display = "inline-flex";
-      setAdminUIVisible(true);
-
-      if(filterDate && !filterDate.value) filterDate.value = nowDate();
-
-      await renderStaff();
-      await renderAdminTable();
-    } else {
-      setStatus("Logado, mas sem permissão (não está na tabela admins).", false);
-      if(adminLogin) adminLogin.style.display = "none";
-      if(adminLogout) adminLogout.style.display = "inline-flex";
-      setAdminUIVisible(false);
-
-      // dica clara
-      showMsgAdmin("Seu usuário logou, mas não está cadastrado como admin na tabela 'admins'.", false);
-    }
-  }
-
-  if(adminLogin){
-    adminLogin.addEventListener("click", async (e)=>{
-      e.preventDefault();
-      e.stopPropagation();
-
-      try{
-        if(!ensureSb()) return showMsgAdmin("Supabase não inicializado.", false);
-
-        const email = String(adminEmail?.value || "").trim();
-        const pass  = String(adminPass?.value  || "").trim();
-
-        if(!email || !pass) return showMsgAdmin("Informe email e senha.", false);
-
-        const res = await sb().auth.signInWithPassword({ email, password: pass });
-
-        if(res.error){
-          console.error(res.error);
-          return showMsgAdmin(res.error.message || "Login inválido.", false);
-        }
-
-        if(!res.data?.session){
-          return showMsgAdmin("Login não gerou sessão. Verifique o usuário.", false);
-        }
-
-        showMsgAdmin("Logado.", true);
-        await syncAuthUI();
-      } catch(err){
-        console.error(err);
-        showMsgAdmin("Erro no login (veja console).", false);
-      }
-    });
-  }
-
-  if(adminLogout){
-    adminLogout.onclick = async ()=>{
-      await sb().auth.signOut();
-      showMsgAdmin("Saiu.", true);
+      showMsgAdmin("Logado.", true);
       await syncAuthUI();
-    };
-  }
+    } catch(e){
+      console.error(e);
+      showMsgAdmin("Erro no login.", false);
+    }
+  });
 
-  if(adminAdd){
-    adminAdd.onclick = async ()=>{
-      const ok = await checkIsAdmin();
-      if(!ok) return alert("Sem permissão de admin.");
+  adminLogout.addEventListener("click", async ()=>{
+    await sb().auth.signOut();
+    showMsgAdmin("Saiu.", true);
+    await syncAuthUI();
+  });
 
-      const id = String(adminId?.value || "").trim();
-      const nome = String(adminNome?.value || "").trim();
-      if(!id || !nome) return alert("Preencha ID e nome.");
+  adminAdd?.addEventListener("click", async ()=>{
+    const id = String(adminId.value || "").trim();
+    const nome = String(adminNome.value || "").trim();
+    if(!id || !nome) return alert("Preencha ID e nome.");
 
-      const { error } = await sb().from("funcionarios").upsert({ emp_id: id, nome });
-      if(error){ console.error(error); return alert("Erro ao salvar funcionário."); }
+    const { error } = await sb().from("funcionarios").upsert({ emp_id: id, nome });
+    if(error){ console.error(error); return alert("Erro ao salvar funcionário."); }
 
-      if(adminId) adminId.value = "";
-      if(adminNome) adminNome.value = "";
-      await renderStaff();
-    };
-  }
+    adminId.value = "";
+    adminNome.value = "";
+    renderStaff();
+  });
 
-  if(filter) filter.addEventListener("input", ()=> renderAdminTable());
-  if(filterDate){
-    filterDate.addEventListener("input", ()=> renderAdminTable());
-    filterDate.addEventListener("change", ()=> renderAdminTable());
-  }
+  filter?.addEventListener("input", ()=> renderAdminTable());
+  filterDate?.addEventListener("change", ()=> renderAdminTable());
 
-  if(exportBtn){
-    exportBtn.onclick = async ()=>{
-      const ok = await checkIsAdmin();
-      if(!ok) return alert("Sem permissão de admin.");
+  exportBtn?.addEventListener("click", async ()=>{
+    const { data, error } = await sb()
+      .from("pontos")
+      .select("data, emp_id, chegada, ini_intervalo, fim_intervalo, saida, funcionarios(nome)")
+      .order("data", { ascending: false });
 
-      const { data, error } = await sb()
-        .from("pontos")
-        .select("data, emp_id, chegada, ini_intervalo, fim_intervalo, saida, funcionarios(nome)")
-        .order("data", { ascending: false });
+    if(error){ console.error(error); return alert("Erro ao exportar."); }
+    if(!data?.length) return alert("Sem dados.");
 
-      if(error){ console.error(error); return alert("Erro ao exportar."); }
-      if(!data?.length) return alert("Sem dados.");
+    const header = ["Data","Funcionário","ID","Chegada","Ini intervalo","Fim intervalo","Saída","Horas"];
+    const sep = ";";
 
-      const header = ["Data","Funcionário","ID","Chegada","Ini intervalo","Fim intervalo","Saída","Horas"];
-      const sep = ";";
+    const lines = [header.join(sep)].concat(
+      data.map(r=>{
+        const horas = secondsToHHMM(calcHorasTrabalhadas(r)) || "";
+        return [
+          isoToBR(r.data ?? ""),
+          (r.funcionarios?.nome ?? ""),
+          (r.emp_id ?? ""),
+          hhmm(r.chegada) || "",
+          hhmm(r.ini_intervalo) || "",
+          hhmm(r.fim_intervalo) || "",
+          hhmm(r.saida) || "",
+          horas
+        ].join(sep);
+      })
+    );
 
-      const lines = [header.join(sep)].concat(
-        data.map(r=>{
-          const horas = secondsToHHMM(calcHorasTrabalhadas(r)) || "";
-          return [
-            isoToBR(r.data ?? ""),
-            (r.funcionarios?.nome ?? ""),
-            (r.emp_id ?? ""),
-            hhmm(r.chegada) || "",
-            hhmm(r.ini_intervalo) || "",
-            hhmm(r.fim_intervalo) || "",
-            hhmm(r.saida) || "",
-            horas
-          ].join(sep);
-        })
-      );
+    const blob = new Blob(["\ufeff" + lines.join("\n")], { type:"text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `ponto_${nowDate()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
 
-      const blob = new Blob(["\ufeff" + lines.join("\n")], { type:"text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `ponto_${nowDate()}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
-    };
-  }
+  clearBtn?.addEventListener("click", async ()=>{
+    if(!confirm("Apagar TODOS os registros?")) return;
+    const { error } = await sb().from("pontos").delete().neq("id", "");
+    if(error){ console.error(error); return alert("Erro ao limpar."); }
+    alert("Registros apagados.");
+    renderAdminTable();
+  });
 
-  if(clearBtn){
-    clearBtn.onclick = async ()=>{
-      const ok = await checkIsAdmin();
-      if(!ok) return alert("Sem permissão de admin.");
-      if(!confirm("Apagar TODOS os registros?")) return;
-
-      const { error } = await sb().from("pontos").delete().neq("id", "");
-      if(error){ console.error(error); alert("Erro ao limpar."); }
-      else { alert("Registros apagados."); renderAdminTable(); }
-    };
-  }
-
-  sb()?.auth?.onAuthStateChange(()=> syncAuthUI());
+  sb().auth.onAuthStateChange(()=> syncAuthUI());
   syncAuthUI();
 }
