@@ -36,7 +36,7 @@
           <input id="date" type="date" disabled />
         </div>
         <div>
-          <label>Hora (local)</label>
+          <label>Hora</label>
           <input id="time" type="time" step="1" disabled />
         </div>
       </div>
@@ -49,7 +49,7 @@
       </div>
 
       <p id="msgIndex" class="msg"></p>
-      <p class="muted small">A hora é salva pelo servidor (mais seguro).</p>
+      <p class="muted small">Data/hora usam o relógio do computador.</p>
     </section>
 
     <section class="card">
@@ -97,7 +97,6 @@
     window.supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
   </script>
 
-  <!-- quebra cache do GitHub Pages -->
-  <script src="script.js?v=10"></script>
+  <script src="script.js?v=1"></script>
 </body>
 </html>
