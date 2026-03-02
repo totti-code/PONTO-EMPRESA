@@ -203,9 +203,26 @@ async function addRegistro(tipo){
       return showMsgIndex("Erro ao buscar registro do dia.", false);
     }
 
-    if(existente && existente[coluna]){
-      return showMsgIndex("Esse horário já foi registrado.", false);
-    }
+    if (existente) {
+
+  if (tipo === "CHEGADA" && existente.chegada)
+    return showMsgIndex("Chegada já registrada.", false);
+
+  if (tipo === "INI_INTERVALO" && !existente.chegada)
+    return showMsgIndex("Registre a chegada primeiro.", false);
+
+  if (tipo === "INI_INTERVALO" && existente.saida)
+    return showMsgIndex("Já foi registrada a saída.", false);
+
+  if (tipo === "FIM_INTERVALO" && !existente.ini_intervalo)
+    return showMsgIndex("Inicie o intervalo primeiro.", false);
+
+  if (tipo === "SAIDA" && !existente.chegada)
+    return showMsgIndex("Registre a chegada primeiro.", false);
+
+  if (tipo === "SAIDA" && existente.saida)
+    return showMsgIndex("Saída já registrada.", false);
+}
 
     let result;
     if(existente){
