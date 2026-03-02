@@ -1,3 +1,22 @@
+let currentFuncionario = null;
+
+async function getFuncionarioLogado(){
+  const { data: { user } } = await sb().auth.getUser();
+  if(!user) return null;
+
+  const { data, error } = await sb()
+    .from("funcionarios")
+    .select("emp_id, nome")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if(error){
+    console.error(error);
+    return null;
+  }
+
+  return data;
+}
 async function requireLogin(){
   const { data } = await sb().auth.getSession();
   if(!data?.session){
@@ -100,6 +119,14 @@ const refreshToday = $("refreshToday");
 (async ()=>{
   const ok = await requireLogin();
   if(!ok) return;
+
+  currentFuncionario = await getFuncionarioLogado();
+
+  if(!currentFuncionario){
+    alert("Usuário não vinculado a funcionário.");
+    return;
+  }
+
   renderToday();
   setInterval(renderToday, 20000);
 })();
@@ -156,24 +183,7 @@ if(emp){
     try{
       if(!ensureSb()) return showMsgIndex("Supabase não inicializado.", false);
 
-      const id = String(emp.value || "").trim();
-      if(!id) return showMsgIndex("Informe seu número (ID).", false);
-
-      // valida funcionário (você cadastra direto no Supabase)
-      const { data: func, error: errFunc } = await sb()
-        .from("funcionarios")
-        .select("emp_id, nome")
-        .eq("emp_id", id)
-        .maybeSingle();
-
-      if(errFunc){
-        console.error(errFunc);
-        return showMsgIndex("Erro ao consultar funcionários.", false);
-      }
-      if(!func?.nome){
-        return showMsgIndex("ID não cadastrado. Procure o responsável.", false);
-      }
-
+      const id = currentFuncionario.emp_id;
       const dataDia = nowDate();
       const hora = nowTime();
 
@@ -189,7 +199,6 @@ if(emp){
       const { data: existente, error: errSel } = await sb()
         .from("pontos")
         .select("id, chegada, ini_intervalo, fim_intervalo, saida")
-        .eq("emp_id", id)
         .eq("data", dataDia)
         .maybeSingle();
 
