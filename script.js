@@ -248,3 +248,11 @@ document.addEventListener("click", (e)=>{
   renderToday();
   setInterval(renderToday, 20000);
 })();
+const btnLogout = $("btnLogout");
+
+if(btnLogout){
+  btnLogout.onclick = async ()=>{
+    await sb().auth.signOut();
+    window.location.href = "login.html";
+  };
+}
