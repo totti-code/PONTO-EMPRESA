@@ -1,3 +1,12 @@
+async function requireLogin(){
+  const { data } = await sb().auth.getSession();
+  if(!data?.session){
+    window.location.href = "login.html";
+    return false;
+  }
+  return true;
+}
+
 const $ = (id) => document.getElementById(id);
 
 function sb(){ return window.supabaseClient; }
@@ -88,7 +97,12 @@ if(dateEl || timeEl){
 const todayTbody = $("todayTbody");
 const todayLabel = $("todayLabel");
 const refreshToday = $("refreshToday");
-
+(async ()=>{
+  const ok = await requireLogin();
+  if(!ok) return;
+  renderToday();
+  setInterval(renderToday, 20000);
+})();
 async function renderToday(){
   if(!todayTbody) return;
   if(!ensureSb()){
@@ -134,10 +148,6 @@ async function renderToday(){
 }
 
 if(refreshToday) refreshToday.onclick = ()=> renderToday();
-if(todayTbody){
-  renderToday();
-  setInterval(renderToday, 20000);
-}
 
 // ===== bater ponto =====
 const emp = $("emp");
