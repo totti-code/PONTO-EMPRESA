@@ -1,31 +1,4 @@
-let currentFuncionario = null;
-
-async function getFuncionarioLogado(){
-  const { data: { user } } = await sb().auth.getUser();
-  if(!user) return null;
-
-  const { data, error } = await sb()
-    .from("funcionarios")
-    .select("emp_id, nome")
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if(error){
-    console.error(error);
-    return null;
-  }
-
-  return data;
-}
-async function requireLogin(){
-  const { data } = await sb().auth.getSession();
-  if(!data?.session){
-    window.location.href = "login.html";
-    return false;
-  }
-  return true;
-}
-
+// ===== helpers =====
 const $ = (id) => document.getElementById(id);
 
 function sb(){ return window.supabaseClient; }
@@ -52,7 +25,6 @@ function isoToBR(iso){
   if(!m) return String(iso);
   return `${m[3]}/${m[2]}/${m[1]}`;
 }
-
 function hhmm(t){
   if(!t) return "";
   const s = String(t).split("+")[0];
@@ -96,6 +68,36 @@ function showMsgIndex(text, ok){
   setTimeout(()=> (el.textContent=""), 2500);
 }
 
+// ===== login guard =====
+async function requireLogin(){
+  const { data } = await sb().auth.getSession();
+  if(!data?.session){
+    window.location.href = "login.html";
+    return false;
+  }
+  return true;
+}
+
+// ===== funcionario logado =====
+let currentFuncionario = null;
+
+async function getFuncionarioLogado(){
+  const { data: { user } } = await sb().auth.getUser();
+  if(!user) return null;
+
+  const { data, error } = await sb()
+    .from("funcionarios")
+    .select("emp_id, nome")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if(error){
+    console.error(error);
+    return null;
+  }
+  return data;
+}
+
 // year
 const yearEl = $("year");
 if(yearEl) yearEl.textContent = new Date().getFullYear();
@@ -112,28 +114,19 @@ if(dateEl || timeEl){
   setInterval(tick, 1000);
 }
 
-// ===== tabela do dia =====
+// ===== tabela do dia (SÓ DO LOGADO) =====
 const todayTbody = $("todayTbody");
 const todayLabel = $("todayLabel");
 const refreshToday = $("refreshToday");
-(async ()=>{
-  const ok = await requireLogin();
-  if(!ok) return;
 
-  currentFuncionario = await getFuncionarioLogado();
-
-  if(!currentFuncionario){
-    alert("Usuário não vinculado a funcionário.");
-    return;
-  }
-
-  renderToday();
-  setInterval(renderToday, 20000);
-})();
 async function renderToday(){
   if(!todayTbody) return;
   if(!ensureSb()){
     todayTbody.innerHTML = `<tr><td colspan="6">Supabase não inicializado.</td></tr>`;
+    return;
+  }
+  if(!currentFuncionario?.emp_id){
+    todayTbody.innerHTML = `<tr><td colspan="6">Usuário não vinculado a funcionário.</td></tr>`;
     return;
   }
 
@@ -141,11 +134,11 @@ async function renderToday(){
   if(todayLabel) todayLabel.textContent = `Dia: ${isoToBR(d)}`;
 
   const { data, error } = await sb()
-  .from("pontos")
-  .select("emp_id, data, chegada, ini_intervalo, fim_intervalo, saida, funcionarios(nome)")
-  .eq("data", d)
-  .eq("emp_id", currentFuncionario.emp_id)
-  .maybeSingle();
+    .from("pontos")
+    .select("emp_id, data, chegada, ini_intervalo, fim_intervalo, saida")
+    .eq("data", d)
+    .eq("emp_id", currentFuncionario.emp_id)
+    .maybeSingle();
 
   if(error){
     console.error(error);
@@ -153,36 +146,33 @@ async function renderToday(){
     return;
   }
 
-  if(error){
-  console.error(error);
-  todayTbody.innerHTML = `<tr><td colspan="6">Erro ao carregar.</td></tr>`;
-  return;
+  if(!data){
+    todayTbody.innerHTML = `<tr><td colspan="6">Nenhum registro hoje.</td></tr>`;
+    return;
+  }
+
+  const r = data;
+  const nome = currentFuncionario?.nome
+    ? `#${r.emp_id} ${currentFuncionario.nome}`
+    : `#${r.emp_id}`;
+
+  const horas = secondsToHHMM(calcHorasTrabalhadas(r)) || "-";
+
+  todayTbody.innerHTML = `
+    <tr>
+      <td class="tdName" title="${nome}">${nome}</td>
+      <td>${hhmm(r.chegada) || "-"}</td>
+      <td>${hhmm(r.ini_intervalo) || "-"}</td>
+      <td>${hhmm(r.fim_intervalo) || "-"}</td>
+      <td>${hhmm(r.saida) || "-"}</td>
+      <td>${horas}</td>
+    </tr>
+  `;
 }
-
-if(!data){
-  todayTbody.innerHTML = `<tr><td colspan="6">Nenhum registro hoje.</td></tr>`;
-  return;
-}
-
-const r = data;
-const nome = currentFuncionario?.nome ? `#${r.emp_id} ${currentFuncionario.nome}` : `#${r.emp_id}`;
-const horas = secondsToHHMM(calcHorasTrabalhadas(r)) || "-";
-
-todayTbody.innerHTML = `
-  <tr>
-    <td class="tdName" title="${nome}">${nome}</td>
-    <td>${hhmm(r.chegada) || "-"}</td>
-    <td>${hhmm(r.ini_intervalo) || "-"}</td>
-    <td>${hhmm(r.fim_intervalo) || "-"}</td>
-    <td>${hhmm(r.saida) || "-"}</td>
-    <td>${horas}</td>
-  </tr>
-`;
 
 if(refreshToday) refreshToday.onclick = ()=> renderToday();
 
-// ===== bater ponto =====
-  // ===== bater ponto (sem input de ID) =====
+// ===== bater ponto (sem input de ID) =====
 async function addRegistro(tipo){
   try{
     if(!ensureSb()) return showMsgIndex("Supabase não inicializado.", false);
@@ -243,3 +233,18 @@ document.addEventListener("click", (e)=>{
   const btn = e.target.closest("button[data-type]");
   if(btn) window.addRegistro(btn.dataset.type);
 });
+
+// ===== init =====
+(async ()=>{
+  const ok = await requireLogin();
+  if(!ok) return;
+
+  currentFuncionario = await getFuncionarioLogado();
+  if(!currentFuncionario){
+    alert("Usuário não vinculado a funcionário (funcionarios.user_id).");
+    return;
+  }
+
+  renderToday();
+  setInterval(renderToday, 20000);
+})();
