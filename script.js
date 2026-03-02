@@ -182,8 +182,6 @@ todayTbody.innerHTML = `
 if(refreshToday) refreshToday.onclick = ()=> renderToday();
 
 // ===== bater ponto =====
-const emp = $("emp");
-if(emp){
   async function addRegistro(tipo){
     try{
       if(!ensureSb()) return showMsgIndex("Supabase não inicializado.", false);
@@ -204,6 +202,7 @@ if(emp){
       const { data: existente, error: errSel } = await sb()
         .from("pontos")
         .select("id, chegada, ini_intervalo, fim_intervalo, saida")
+        .eq("emp_id", id)
         .eq("data", dataDia)
         .maybeSingle();
 
@@ -242,4 +241,3 @@ if(emp){
     const btn = e.target.closest("button[data-type]");
     if(btn) window.addRegistro(btn.dataset.type);
   });
-}
