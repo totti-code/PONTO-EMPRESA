@@ -141,10 +141,11 @@ async function renderToday(){
   if(todayLabel) todayLabel.textContent = `Dia: ${isoToBR(d)}`;
 
   const { data, error } = await sb()
-    .from("pontos")
-    .select("emp_id, data, chegada, ini_intervalo, fim_intervalo, saida, funcionarios(nome)")
-    .eq("data", d)
-    .order("emp_id", { ascending: true });
+  .from("pontos")
+  .select("emp_id, data, chegada, ini_intervalo, fim_intervalo, saida, funcionarios(nome)")
+  .eq("data", d)
+  .eq("emp_id", currentFuncionario.emp_id)
+  .maybeSingle();
 
   if(error){
     console.error(error);
@@ -152,27 +153,31 @@ async function renderToday(){
     return;
   }
 
-  const rows = data || [];
-  if(!rows.length){
-    todayTbody.innerHTML = `<tr><td colspan="6">Nenhum registro hoje.</td></tr>`;
-    return;
-  }
-
-  todayTbody.innerHTML = rows.map(r=>{
-    const nome = r.funcionarios?.nome ? `#${r.emp_id} ${r.funcionarios.nome}` : `#${r.emp_id}`;
-    const horas = secondsToHHMM(calcHorasTrabalhadas(r)) || "-";
-    return `
-      <tr>
-        <td class="tdName" title="${nome}">${nome}</td>
-        <td>${hhmm(r.chegada) || "-"}</td>
-        <td>${hhmm(r.ini_intervalo) || "-"}</td>
-        <td>${hhmm(r.fim_intervalo) || "-"}</td>
-        <td>${hhmm(r.saida) || "-"}</td>
-        <td>${horas}</td>
-      </tr>
-    `;
-  }).join("");
+  if(error){
+  console.error(error);
+  todayTbody.innerHTML = `<tr><td colspan="6">Erro ao carregar.</td></tr>`;
+  return;
 }
+
+if(!data){
+  todayTbody.innerHTML = `<tr><td colspan="6">Nenhum registro hoje.</td></tr>`;
+  return;
+}
+
+const r = data;
+const nome = currentFuncionario?.nome ? `#${r.emp_id} ${currentFuncionario.nome}` : `#${r.emp_id}`;
+const horas = secondsToHHMM(calcHorasTrabalhadas(r)) || "-";
+
+todayTbody.innerHTML = `
+  <tr>
+    <td class="tdName" title="${nome}">${nome}</td>
+    <td>${hhmm(r.chegada) || "-"}</td>
+    <td>${hhmm(r.ini_intervalo) || "-"}</td>
+    <td>${hhmm(r.fim_intervalo) || "-"}</td>
+    <td>${hhmm(r.saida) || "-"}</td>
+    <td>${horas}</td>
+  </tr>
+`;
 
 if(refreshToday) refreshToday.onclick = ()=> renderToday();
 
