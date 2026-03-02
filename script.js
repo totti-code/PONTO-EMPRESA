@@ -202,7 +202,11 @@ async function addRegistro(tipo){
       console.error(errSel);
       return showMsgIndex("Erro ao buscar registro do dia.", false);
     }
-
+// Se NÃO existe registro ainda, só pode registrar CHEGADA
+if (!existente) {
+  if (tipo !== "CHEGADA")
+    return showMsgIndex("Registre a chegada primeiro.", false);
+}
     if (existente) {
 
   if (tipo === "CHEGADA" && existente.chegada)
