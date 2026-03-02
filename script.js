@@ -182,62 +182,64 @@ todayTbody.innerHTML = `
 if(refreshToday) refreshToday.onclick = ()=> renderToday();
 
 // ===== bater ponto =====
-  async function addRegistro(tipo){
-    try{
-      if(!ensureSb()) return showMsgIndex("Supabase não inicializado.", false);
+  // ===== bater ponto (sem input de ID) =====
+async function addRegistro(tipo){
+  try{
+    if(!ensureSb()) return showMsgIndex("Supabase não inicializado.", false);
+    if(!currentFuncionario?.emp_id) return showMsgIndex("Usuário não vinculado a funcionário.", false);
 
-      const id = currentFuncionario.emp_id;
-      const dataDia = nowDate();
-      const hora = nowTime();
+    const id = currentFuncionario.emp_id;
+    const dataDia = nowDate();
+    const hora = nowTime();
 
-      const coluna = ({
-        CHEGADA: "chegada",
-        INI_INTERVALO: "ini_intervalo",
-        FIM_INTERVALO: "fim_intervalo",
-        SAIDA: "saida",
-      })[tipo];
+    const coluna = ({
+      CHEGADA: "chegada",
+      INI_INTERVALO: "ini_intervalo",
+      FIM_INTERVALO: "fim_intervalo",
+      SAIDA: "saida",
+    })[tipo];
 
-      if(!coluna) return showMsgIndex("Tipo inválido.", false);
+    if(!coluna) return showMsgIndex("Tipo inválido.", false);
 
-      const { data: existente, error: errSel } = await sb()
-        .from("pontos")
-        .select("id, chegada, ini_intervalo, fim_intervalo, saida")
-        .eq("emp_id", id)
-        .eq("data", dataDia)
-        .maybeSingle();
+    const { data: existente, error: errSel } = await sb()
+      .from("pontos")
+      .select("id, chegada, ini_intervalo, fim_intervalo, saida")
+      .eq("emp_id", id)
+      .eq("data", dataDia)
+      .maybeSingle();
 
-      if(errSel){
-        console.error(errSel);
-        return showMsgIndex("Erro ao buscar registro do dia.", false);
-      }
-
-      if(existente && existente[coluna]){
-        return showMsgIndex("Esse horário já foi registrado.", false);
-      }
-
-      let result;
-      if(existente){
-        result = await sb().from("pontos").update({ [coluna]: hora }).eq("id", existente.id);
-      } else {
-        result = await sb().from("pontos").insert([{ emp_id: id, data: dataDia, [coluna]: hora }]);
-      }
-
-      if(result.error){
-        console.error(result.error);
-        return showMsgIndex("Erro ao salvar.", false);
-      }
-
-      showMsgIndex("Registrado com sucesso!", true);
-      renderToday();
-    } catch(e){
-      console.error(e);
-      showMsgIndex("Erro inesperado.", false);
+    if(errSel){
+      console.error(errSel);
+      return showMsgIndex("Erro ao buscar registro do dia.", false);
     }
+
+    if(existente && existente[coluna]){
+      return showMsgIndex("Esse horário já foi registrado.", false);
+    }
+
+    let result;
+    if(existente){
+      result = await sb().from("pontos").update({ [coluna]: hora }).eq("id", existente.id);
+    } else {
+      result = await sb().from("pontos").insert([{ emp_id: id, data: dataDia, [coluna]: hora }]);
+    }
+
+    if(result.error){
+      console.error(result.error);
+      return showMsgIndex("Erro ao salvar.", false);
+    }
+
+    showMsgIndex("Registrado com sucesso!", true);
+    renderToday();
+  } catch(e){
+    console.error(e);
+    showMsgIndex("Erro inesperado.", false);
   }
+}
 
-  window.addRegistro = addRegistro;
+window.addRegistro = addRegistro;
 
-  document.addEventListener("click", (e)=>{
-    const btn = e.target.closest("button[data-type]");
-    if(btn) window.addRegistro(btn.dataset.type);
-  });
+document.addEventListener("click", (e)=>{
+  const btn = e.target.closest("button[data-type]");
+  if(btn) window.addRegistro(btn.dataset.type);
+});
