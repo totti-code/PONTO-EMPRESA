@@ -158,6 +158,27 @@ async function metaDoDia(empId, dataISO){
   }
 }
 
+// ✅ NOVO: saldo anterior (mês anterior) vindo do resumo_mes
+async function getSaldoAnterior(empId, ano, mes){
+  // mês anterior
+  let a = ano, m = mes - 1;
+  if(m === 0){ m = 12; a = ano - 1; }
+
+  const { data, error } = await sb()
+    .from("resumo_mes")
+    .select("saldo_acum_seg")
+    .eq("emp_id", empId)
+    .eq("ano", a)
+    .eq("mes", m)
+    .maybeSingle();
+
+  if(error){
+    console.error(error);
+    return 0;
+  }
+  return data?.saldo_acum_seg ?? 0;
+}
+
 async function carregarMes(){
   const { start, end, ano, mes } = monthRangeFromInput();
 
@@ -218,17 +239,22 @@ async function carregarMes(){
     `;
   }
 
+  // ✅ NOVO: acumulado real (continua do mês passado)
+  const saldoAnterior = await getSaldoAnterior(currentFuncionario.emp_id, ano, mes);
+  const saldoAcumuladoReal = saldoAnterior + saldoAcumulado;
+
   // ✅ preencher tela (resumo)
   $("dias").textContent = dias;
   $("totalHoras").textContent = secondsToHHMM(totalSegundos);
 
   $("saldoPos").textContent = secondsToHHMM(totalSaldoPositivo);
   $("saldoNeg").textContent = secondsToHHMM(totalSaldoNegativo);
-  $("saldoAcum").textContent = secondsToHHMMsigned(saldoAcumulado);
+
+  $("saldoAcum").textContent = secondsToHHMMsigned(saldoAcumuladoReal);
 
   $("saldoPos").className = "pos";
   $("saldoNeg").className = "neg";
-  $("saldoAcum").className = (saldoAcumulado >= 0 ? "pos" : "neg");
+  $("saldoAcum").className = (saldoAcumuladoReal >= 0 ? "pos" : "neg");
 
   // ✅ upsert no final do carregarMes()
   const { error: upsertErr } = await sb().from("resumo_mes").upsert([{
@@ -239,7 +265,7 @@ async function carregarMes(){
     total_segundos: totalSegundos,
     saldo_pos_seg: totalSaldoPositivo,
     saldo_neg_seg: totalSaldoNegativo,
-    saldo_acum_seg: saldoAcumulado,
+    saldo_acum_seg: saldoAcumuladoReal,
     updated_at: new Date().toISOString()
   }], { onConflict: "emp_id,ano,mes" });
 
