@@ -156,9 +156,13 @@ async function carregarMes(){
     `;
   });
 
-  $("dias").textContent = dias;
+    $("dias").textContent = dias;
   $("totalHoras").textContent = secondsToHHMM(totalSegundos);
-  $("horasExtras").textContent = secondsToHHMM(totalExtras);
+
+  // 🔹 novos campos de saldo
+  $("saldoPos").textContent = secondsToHHMM(totalSaldoPositivo);
+  $("saldoNeg").textContent = secondsToHHMM(totalSaldoNegativo);
+  $("saldoAcum").textContent = secondsToHHMMsigned(saldoAcumulado);
 }
 
 (async ()=>{
