@@ -24,7 +24,12 @@ async function getFuncionario(){
 
 function pad(n){ return String(n).padStart(2,"0"); }
 
-// ✅ NOVO: monthRange baseado no input YYYY-MM (#mesRef)
+function nowDate(){
+  const d = new Date();
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
+
+// ✅ monthRange baseado no input YYYY-MM (#mesRef)
 function monthRangeFromInput(){
   const el = $("mesRef");
   const d = new Date();
@@ -67,47 +72,90 @@ function calcHoras(r){
   return total > 0 ? total : 0;
 }
 
-// ====== METAS / CICLO (AJUSTE) ======
-const META_NORMAL = 9*3600;             // 09:00 (seg-sex na semana normal)
-const META_SEMANA_SAB = 7*3600 + 20*60; // 07:20 (seg-sex na semana do sábado)
-const META_SABADO = 7*3600 + 20*60;     // 07:20 (sábado na semana do sábado)
+// ====== METAS ======
+const META_NORMAL = 9*3600;             // 09:00 (semana normal seg-sex)
+const META_SEMANA_SAB = 7*3600 + 20*60; // 07:20 (seg-sex na semana com sábado)
+const META_SABADO = 7*3600 + 20*60;     // 07:20 (sábado na semana com sábado)
 
-// escolha uma SEGUNDA-FEIRA que seja o início de uma semana que tem sábado trabalhado
-const CICLO_INICIO = "2026-03-02";
-
+// ====== FUNÇÕES DE SEMANA (SEGUNDA-FEIRA) ======
 function isoToDate(iso){
   const [y,m,d] = iso.split("-").map(Number);
   return new Date(y, m-1, d);
 }
-function weekDiff(aISO, bISO){
-  const a = isoToDate(aISO);
-  const b = isoToDate(bISO);
-  return Math.floor((b - a) / (7*24*3600*1000));
-}
-function dow(iso){ return isoToDate(iso).getDay(); } // 0 dom ... 6 sáb
-function isSemanaDeSabado(dataISO){
-  const w = weekDiff(CICLO_INICIO, dataISO);
-  const mod = ((w % 4) + 4) % 4;
-  return mod === 0;
+
+// devolve ISO (YYYY-MM-DD) da segunda-feira da semana da dataISO
+function mondayOfWeekISO(dateISO){
+  const dt = isoToDate(dateISO);
+  const day = dt.getDay(); // 0 dom .. 6 sáb
+  const diffToMon = (day === 0) ? 6 : (day - 1);
+  dt.setDate(dt.getDate() - diffToMon);
+  const y = dt.getFullYear();
+  const m = String(dt.getMonth()+1).padStart(2,"0");
+  const d = String(dt.getDate()).padStart(2,"0");
+  return `${y}-${m}-${d}`;
 }
 
-function metaDoDia(dataISO){
-  const d = dow(dataISO);
-  const semanaSab = isSemanaDeSabado(dataISO);
+// ====== CARREGAR/SALVAR ESCALA DA SEMANA ======
+async function getEscalaSemana(empId, semanaInicioISO){
+  const { data, error } = await sb()
+    .from("escala_semanal")
+    .select("trabalha_sabado")
+    .eq("emp_id", empId)
+    .eq("semana_inicio", semanaInicioISO)
+    .maybeSingle();
 
-  if(d === 0) return 0; // domingo
+  if(error){
+    console.error(error);
+    return null;
+  }
+  return data?.trabalha_sabado ?? false;
+}
+
+async function setEscalaSemana(empId, semanaInicioISO, trabalhaSabado){
+  const { error } = await sb()
+    .from("escala_semanal")
+    .upsert([{
+      emp_id: empId,
+      semana_inicio: semanaInicioISO,
+      trabalha_sabado: trabalhaSabado,
+      updated_at: new Date().toISOString(),
+    }], { onConflict: "emp_id,semana_inicio" });
+
+  if(error){
+    console.error(error);
+    return false;
+  }
+  return true;
+}
+
+// cache simples pra não bater no banco toda linha
+const escalaCache = new Map();
+
+async function trabalhaSabadoNaSemana(empId, dataISO){
+  const semana = mondayOfWeekISO(dataISO);
+  const key = `${empId}|${semana}`;
+  if(escalaCache.has(key)) return escalaCache.get(key);
+
+  const val = await getEscalaSemana(empId, semana);
+  escalaCache.set(key, val);
+  return val;
+}
+
+// agora metaDoDia vira async
+async function metaDoDia(empId, dataISO){
+  const d = isoToDate(dataISO).getDay(); // 0 dom .. 6 sáb
+  if(d === 0) return 0;
+
+  const semanaSab = await trabalhaSabadoNaSemana(empId, dataISO);
 
   if(semanaSab){
-    // seg-sab = 07:20
     return (d === 6) ? META_SABADO : META_SEMANA_SAB;
   } else {
-    // semana normal: seg-sex 09:00, sábado 0
     return (d === 6) ? 0 : META_NORMAL;
   }
 }
 
 async function carregarMes(){
-  // ✅ agora lê do input
   const { start, end, ano, mes } = monthRangeFromInput();
 
   const { data, error } = await sb()
@@ -134,13 +182,14 @@ async function carregarMes(){
   const tbody = $("tbodyMes");
   tbody.innerHTML = "";
 
-  data.forEach(r=>{
+  // ✅ for...of para usar await no metaDoDia
+  for (const r of data) {
     const horas = calcHoras(r);
     if(horas > 0) dias++;
 
     totalSegundos += horas;
 
-    const meta = metaDoDia(r.data);
+    const meta = await metaDoDia(currentFuncionario.emp_id, r.data);
     if(horas > meta) totalExtras += (horas - meta);
 
     const saldoDia = horas - meta;
@@ -164,7 +213,7 @@ async function carregarMes(){
         </td>
       </tr>
     `;
-  });
+  }
 
   // ✅ preencher tela (resumo)
   $("dias").textContent = dias;
@@ -178,7 +227,7 @@ async function carregarMes(){
   $("saldoNeg").className = "neg";
   $("saldoAcum").className = (saldoAcumulado >= 0 ? "pos" : "neg");
 
-  // ✅ NOVO: upsert no final do carregarMes()
+  // ✅ upsert no final do carregarMes()
   const { error: upsertErr } = await sb().from("resumo_mes").upsert([{
     emp_id: currentFuncionario.emp_id,
     ano,
@@ -206,7 +255,7 @@ async function carregarMes(){
     return;
   }
 
-  // ✅ NOVO: mês padrão = mês atual + botão aplicar
+  // ✅ mês padrão = mês atual + botão aplicar
   const d = new Date();
   if($("mesRef")){
     $("mesRef").value = `${d.getFullYear()}-${pad(d.getMonth()+1)}`;
@@ -214,6 +263,31 @@ async function carregarMes(){
   if($("btnAplicarMes")){
     $("btnAplicarMes").onclick = ()=> carregarMes();
   }
+
+  // ✅ Ligar o botão “Trabalhar sábado” na semana atual
+  const semanaAtual = mondayOfWeekISO(nowDate());
+  if($("semanaLabel")) $("semanaLabel").textContent = `Início: ${semanaAtual}`;
+
+  async function refreshToggle(){
+    const val = await getEscalaSemana(currentFuncionario.emp_id, semanaAtual);
+    if($("btnToggleSabado")){
+      $("btnToggleSabado").textContent = `Trabalhar sábado: ${val ? "SIM" : "NÃO"}`;
+    }
+  }
+
+  if($("btnToggleSabado")){
+    $("btnToggleSabado").onclick = async ()=>{
+      const atual = await getEscalaSemana(currentFuncionario.emp_id, semanaAtual);
+      const ok = await setEscalaSemana(currentFuncionario.emp_id, semanaAtual, !atual);
+      if(ok){
+        escalaCache.clear();
+        await refreshToggle();
+        carregarMes(); // recalcula metas/saldos com a nova regra
+      }
+    };
+  }
+
+  refreshToggle();
 
   carregarMes();
 })();
