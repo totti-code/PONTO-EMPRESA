@@ -52,8 +52,46 @@ function calcHoras(r){
   return total > 0 ? total : 0;
 }
 
-async function carregarMes(){
+// ====== METAS / CICLO (AJUSTE) ======
+const META_NORMAL = 9*3600;             // 09:00 (seg-sex na semana normal)
+const META_SEMANA_SAB = 7*3600 + 20*60; // 07:20 (seg-sex na semana do sábado)
+const META_SABADO = 7*3600 + 20*60;     // 07:20 (sábado na semana do sábado)
 
+// escolha uma SEGUNDA-FEIRA que seja o início de uma semana que tem sábado trabalhado
+const CICLO_INICIO = "2026-03-02";
+
+function isoToDate(iso){
+  const [y,m,d] = iso.split("-").map(Number);
+  return new Date(y, m-1, d);
+}
+function weekDiff(aISO, bISO){
+  const a = isoToDate(aISO);
+  const b = isoToDate(bISO);
+  return Math.floor((b - a) / (7*24*3600*1000));
+}
+function dow(iso){ return isoToDate(iso).getDay(); } // 0 dom ... 6 sáb
+function isSemanaDeSabado(dataISO){
+  const w = weekDiff(CICLO_INICIO, dataISO);
+  const mod = ((w % 4) + 4) % 4;
+  return mod === 0;
+}
+
+function metaDoDia(dataISO){
+  const d = dow(dataISO);
+  const semanaSab = isSemanaDeSabado(dataISO);
+
+  if(d === 0) return 0; // domingo
+
+  if(semanaSab){
+    // seg-sab = 07:20
+    return (d === 6) ? META_SABADO : META_SEMANA_SAB;
+  } else {
+    // semana normal: seg-sex 09:00, sábado 0
+    return (d === 6) ? 0 : META_NORMAL;
+  }
+}
+
+async function carregarMes(){
   const { start, end } = monthRange();
 
   const { data, error } = await sb()
@@ -82,9 +120,8 @@ async function carregarMes(){
 
     totalSegundos += horas;
 
-    const cargaDia = 9 * 3600;
-    if(horas > cargaDia)
-      totalExtras += (horas - cargaDia);
+    const meta = metaDoDia(r.data);
+    if(horas > meta) totalExtras += (horas - meta);
 
     tbody.innerHTML += `
       <tr>
