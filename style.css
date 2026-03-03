@@ -235,3 +235,5 @@ tbody tr:hover{ background: rgba(34,197,94,.06); }
     font-size: 12px;
   }
 }
+.pos{ color: #22c55e; font-weight: 800; }
+.neg{ color: #ef4444; font-weight: 800; }
