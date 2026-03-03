@@ -150,8 +150,12 @@ async function carregarMes(){
         <td>${r.saida || "-"}</td>
         <td>${secondsToHHMM(horas)}</td>
         <td>${meta ? secondsToHHMM(meta) : "-"}</td>
-        <td>${meta ? secondsToHHMMsigned(saldoDia) : "-"}</td>
-        <td>${meta ? secondsToHHMMsigned(saldoAcumulado) : "-"}</td>
+        <td class="${saldoDia >= 0 ? "pos" : "neg"}">
+  ${meta ? secondsToHHMMsigned(saldoDia) : "-"}
+</td>
+<td class="${saldoAcumulado >= 0 ? "pos" : "neg"}">
+  ${meta ? secondsToHHMMsigned(saldoAcumulado) : "-"}
+</td>
       </tr>
     `;
   });
@@ -163,6 +167,9 @@ async function carregarMes(){
   $("saldoPos").textContent = secondsToHHMM(totalSaldoPositivo);
   $("saldoNeg").textContent = secondsToHHMM(totalSaldoNegativo);
   $("saldoAcum").textContent = secondsToHHMMsigned(saldoAcumulado);
+  $("saldoPos").className = "pos";
+  $("saldoNeg").className = "neg";
+  $("saldoAcum").className = (saldoAcumulado >= 0 ? "pos" : "neg");
 }
 
 (async ()=>{
