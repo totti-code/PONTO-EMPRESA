@@ -32,7 +32,14 @@ function nowDate(){
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 }
 
-// ✅ monthRange baseado no input YYYY-MM (#mesRef)
+// ✅ NOVO: calcula o último dia real do mês (corrige fevereiro etc.)
+function lastDayOfMonthISO(Y, M){
+  // M = 1..12
+  const last = new Date(Y, M, 0); // dia 0 do mês seguinte = último dia do mês atual
+  return `${Y}-${pad(M)}-${pad(last.getDate())}`;
+}
+
+// ✅ monthRange baseado no input YYYY-MM (#mesRef) + último dia real do mês
 function monthRangeFromInput(){
   const el = $("mesRef");
   const d = new Date();
@@ -44,7 +51,8 @@ function monthRangeFromInput(){
   const [Y, M] = ym.split("-").map(Number);
 
   const start = `${Y}-${pad(M)}-01`;
-  const end = `${Y}-${pad(M)}-31`;
+  const end = lastDayOfMonthISO(Y, M);
+
   return { start, end, ano: Y, mes: M };
 }
 
@@ -158,7 +166,7 @@ async function metaDoDia(empId, dataISO){
   }
 }
 
-// ✅ NOVO: saldo anterior (mês anterior) vindo do resumo_mes
+// ✅ saldo anterior (mês anterior) vindo do resumo_mes
 async function getSaldoAnterior(empId, ano, mes){
   // mês anterior
   let a = ano, m = mes - 1;
@@ -206,7 +214,6 @@ async function carregarMes(){
   const tbody = $("tbodyMes");
   tbody.innerHTML = "";
 
-  // ✅ for...of para usar await no metaDoDia
   for (const r of data) {
     const horas = calcHoras(r);
     if(horas > 0) dias++;
@@ -239,11 +246,9 @@ async function carregarMes(){
     `;
   }
 
-  // ✅ NOVO: acumulado real (continua do mês passado)
   const saldoAnterior = await getSaldoAnterior(currentFuncionario.emp_id, ano, mes);
   const saldoAcumuladoReal = saldoAnterior + saldoAcumulado;
 
-  // ✅ preencher tela (resumo)
   $("dias").textContent = dias;
   $("totalHoras").textContent = secondsToHHMM(totalSegundos);
 
@@ -256,7 +261,6 @@ async function carregarMes(){
   $("saldoNeg").className = "neg";
   $("saldoAcum").className = (saldoAcumuladoReal >= 0 ? "pos" : "neg");
 
-  // ✅ upsert no final do carregarMes()
   const { error: upsertErr } = await sb().from("resumo_mes").upsert([{
     emp_id: currentFuncionario.emp_id,
     ano,
@@ -293,7 +297,6 @@ async function refreshToggle(){
     return;
   }
 
-  // ✅ mês padrão = mês atual + botão aplicar
   const d = new Date();
   if($("mesRef")){
     $("mesRef").value = `${d.getFullYear()}-${pad(d.getMonth()+1)}`;
@@ -302,7 +305,6 @@ async function refreshToggle(){
     $("btnAplicarMes").onclick = ()=> carregarMes();
   }
 
-  // ✅ semana selecionada padrão + preencher input semanaRef
   semanaSelecionadaISO = mondayOfWeekISO(nowDate());
   if($("semanaRef")){
     $("semanaRef").value = semanaSelecionadaISO;
@@ -311,10 +313,9 @@ async function refreshToggle(){
     $("semanaLabel").textContent = `Início: ${semanaSelecionadaISO}`;
   }
 
-  // ✅ botão "Carregar semana"
   if($("btnAplicarSemana")){
     $("btnAplicarSemana").onclick = async ()=>{
-      const v = $("semanaRef").value; // pode ser qualquer dia
+      const v = $("semanaRef").value;
       if(!v) return;
       semanaSelecionadaISO = mondayOfWeekISO(v);
       $("semanaRef").value = semanaSelecionadaISO;
@@ -323,7 +324,6 @@ async function refreshToggle(){
     };
   }
 
-  // ✅ toggle usa semanaSelecionadaISO
   if($("btnToggleSabado")){
     $("btnToggleSabado").onclick = async ()=>{
       const semana = semanaSelecionadaISO || mondayOfWeekISO(nowDate());
