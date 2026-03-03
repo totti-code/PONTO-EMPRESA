@@ -215,11 +215,17 @@ if (!existente) {
   if (tipo === "INI_INTERVALO" && !existente.chegada)
     return showMsgIndex("Registre a chegada primeiro.", false);
 
+  if (tipo === "INI_INTERVALO" && existente.ini_intervalo)
+    return showMsgIndex("Início de intervalo já registrado.", false);
+
   if (tipo === "INI_INTERVALO" && existente.saida)
     return showMsgIndex("Já foi registrada a saída.", false);
 
   if (tipo === "FIM_INTERVALO" && !existente.ini_intervalo)
     return showMsgIndex("Inicie o intervalo primeiro.", false);
+
+  if (tipo === "FIM_INTERVALO" && existente.fim_intervalo)
+    return showMsgIndex("Fim de intervalo já registrado.", false);
 
   if (tipo === "SAIDA" && !existente.chegada)
     return showMsgIndex("Registre a chegada primeiro.", false);
