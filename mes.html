@@ -38,7 +38,7 @@
       <button id="btnAplicarMes" class="btn ghost" type="button">Aplicar</button>
     </div>
 
-    <!-- ✅ Toggle de sábado (coloque aqui) -->
+    <!-- ✅ Semana atual + Toggle de sábado -->
     <div class="row" style="grid-template-columns:1fr auto; align-items:end;">
       <div>
         <label>Semana atual</label>
@@ -48,6 +48,15 @@
       <button id="btnToggleSabado" class="btn ghost" type="button">
         Trabalhar sábado: -
       </button>
+    </div>
+
+    <!-- ✅ Seletor de semana (segunda-feira) -->
+    <div class="row" style="grid-template-columns:1fr auto; align-items:end;">
+      <div>
+        <label>Semana (segunda-feira)</label>
+        <input id="semanaRef" type="date" />
+      </div>
+      <button id="btnAplicarSemana" class="btn ghost" type="button">Carregar semana</button>
     </div>
 
     <p><strong>Dias trabalhados:</strong> <span id="dias">-</span></p>
