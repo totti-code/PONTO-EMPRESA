@@ -43,6 +43,12 @@ function secondsToHHMM(sec){
   return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
 }
 
+function secondsToHHMMsigned(sec){
+  const sign = sec >= 0 ? "+" : "-";
+  const abs = Math.abs(sec);
+  return sign + secondsToHHMM(abs);
+}
+
 function calcHoras(r){
   if(!r.chegada || !r.saida) return 0;
   let total = timeToSeconds(r.saida) - timeToSeconds(r.chegada);
@@ -111,6 +117,10 @@ async function carregarMes(){
   let totalExtras = 0;
   let dias = 0;
 
+  let saldoAcumulado = 0;
+  let totalSaldoPositivo = 0;
+  let totalSaldoNegativo = 0;
+
   const tbody = $("tbodyMes");
   tbody.innerHTML = "";
 
@@ -123,12 +133,25 @@ async function carregarMes(){
     const meta = metaDoDia(r.data);
     if(horas > meta) totalExtras += (horas - meta);
 
+    // saldo do dia (pode ser negativo)
+    const saldoDia = horas - meta;
+
+    // acumulado
+    saldoAcumulado += saldoDia;
+
+    // totais separados (opcional, mas útil)
+    if(saldoDia >= 0) totalSaldoPositivo += saldoDia;
+    else totalSaldoNegativo += (-saldoDia);
+
     tbody.innerHTML += `
       <tr>
         <td>${r.data}</td>
         <td>${r.chegada || "-"}</td>
         <td>${r.saida || "-"}</td>
         <td>${secondsToHHMM(horas)}</td>
+        <td>${meta ? secondsToHHMM(meta) : "-"}</td>
+        <td>${meta ? secondsToHHMMsigned(saldoDia) : "-"}</td>
+        <td>${meta ? secondsToHHMMsigned(saldoAcumulado) : "-"}</td>
       </tr>
     `;
   });
