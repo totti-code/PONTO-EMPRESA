@@ -12,6 +12,9 @@ async function requireLogin(){
 
 let currentFuncionario = null;
 
+// ✅ NOVO: semana selecionada (segunda-feira ISO)
+let semanaSelecionadaISO = null;
+
 async function getFuncionario(){
   const { data: { user } } = await sb().auth.getUser();
   const { data } = await sb()
@@ -245,6 +248,15 @@ async function carregarMes(){
   }
 }
 
+// ✅ refreshToggle usa a semana selecionada
+async function refreshToggle(){
+  const semana = semanaSelecionadaISO || mondayOfWeekISO(nowDate());
+  const val = await getEscalaSemana(currentFuncionario.emp_id, semana);
+  if($("btnToggleSabado")){
+    $("btnToggleSabado").textContent = `Trabalhar sábado: ${val ? "SIM" : "NÃO"}`;
+  }
+}
+
 (async ()=>{
   const ok = await requireLogin();
   if(!ok) return;
@@ -264,30 +276,41 @@ async function carregarMes(){
     $("btnAplicarMes").onclick = ()=> carregarMes();
   }
 
-  // ✅ Ligar o botão “Trabalhar sábado” na semana atual
-  const semanaAtual = mondayOfWeekISO(nowDate());
-  if($("semanaLabel")) $("semanaLabel").textContent = `Início: ${semanaAtual}`;
-
-  async function refreshToggle(){
-    const val = await getEscalaSemana(currentFuncionario.emp_id, semanaAtual);
-    if($("btnToggleSabado")){
-      $("btnToggleSabado").textContent = `Trabalhar sábado: ${val ? "SIM" : "NÃO"}`;
-    }
+  // ✅ semana selecionada padrão + preencher input semanaRef
+  semanaSelecionadaISO = mondayOfWeekISO(nowDate());
+  if($("semanaRef")){
+    $("semanaRef").value = semanaSelecionadaISO;
+  }
+  if($("semanaLabel")){
+    $("semanaLabel").textContent = `Início: ${semanaSelecionadaISO}`;
   }
 
+  // ✅ botão "Carregar semana"
+  if($("btnAplicarSemana")){
+    $("btnAplicarSemana").onclick = async ()=>{
+      const v = $("semanaRef").value; // pode ser qualquer dia
+      if(!v) return;
+      semanaSelecionadaISO = mondayOfWeekISO(v);
+      $("semanaRef").value = semanaSelecionadaISO;
+      $("semanaLabel").textContent = `Início: ${semanaSelecionadaISO}`;
+      await refreshToggle();
+    };
+  }
+
+  // ✅ toggle usa semanaSelecionadaISO
   if($("btnToggleSabado")){
     $("btnToggleSabado").onclick = async ()=>{
-      const atual = await getEscalaSemana(currentFuncionario.emp_id, semanaAtual);
-      const ok = await setEscalaSemana(currentFuncionario.emp_id, semanaAtual, !atual);
+      const semana = semanaSelecionadaISO || mondayOfWeekISO(nowDate());
+      const atual = await getEscalaSemana(currentFuncionario.emp_id, semana);
+      const ok = await setEscalaSemana(currentFuncionario.emp_id, semana, !atual);
       if(ok){
         escalaCache.clear();
         await refreshToggle();
-        carregarMes(); // recalcula metas/saldos com a nova regra
+        carregarMes();
       }
     };
   }
 
-  refreshToggle();
-
+  await refreshToggle();
   carregarMes();
 })();
