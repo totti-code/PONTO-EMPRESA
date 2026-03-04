@@ -3,6 +3,7 @@
 // 1) saldoMesSeg = saldoAcumulado (saldo do mês)
 // 2) setar $("saldoMes") com signed e class pos/neg
 // 3) acumulado profissional: soma meses anteriores + saldoMesSeg
+// 4) ✅ REMOVIDO: toda UI do sábado (toggle/semanaRef/semanaLabel/botões)
 
 const $ = (id) => document.getElementById(id);
 function sb(){ return window.supabaseClient; }
@@ -17,9 +18,6 @@ async function requireLogin(){
 }
 
 let currentFuncionario = null;
-
-// ✅ NOVO: semana selecionada (segunda-feira ISO)
-let semanaSelecionadaISO = null;
 
 async function getFuncionario(){
   const { data: { user } } = await sb().auth.getUser();
@@ -38,7 +36,7 @@ function nowDate(){
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 }
 
-// ✅ NOVO: calcula o último dia real do mês (corrige fevereiro etc.)
+// ✅ calcula o último dia real do mês (corrige fevereiro etc.)
 function lastDayOfMonthISO(Y, M){
   // M = 1..12
   const last = new Date(Y, M, 0); // dia 0 do mês seguinte = último dia do mês atual
@@ -130,23 +128,6 @@ async function getEscalaSemana(empId, semanaInicioISO){
     return null;
   }
   return data?.trabalha_sabado ?? false;
-}
-
-async function setEscalaSemana(empId, semanaInicioISO, trabalhaSabado){
-  const { error } = await sb()
-    .from("escala_semanal")
-    .upsert([{
-      emp_id: empId,
-      semana_inicio: semanaInicioISO,
-      trabalha_sabado: trabalhaSabado,
-      updated_at: new Date().toISOString(),
-    }], { onConflict: "emp_id,semana_inicio" });
-
-  if(error){
-    console.error(error);
-    return false;
-  }
-  return true;
 }
 
 // cache simples pra não bater no banco toda linha
@@ -292,7 +273,6 @@ async function carregarMes(){
 
   // =========================
   // ✅ 1) SALDO DO MÊS
-  // (depois do loop, antes do resumo)
   const saldoMesSeg = saldoAcumulado; // ✅ saldo do mês (pode ser negativo)
   // =========================
 
@@ -304,7 +284,7 @@ async function carregarMes(){
   $("saldoNeg").textContent = secondsToHHMM(totalSaldoNegativo);
 
   // =========================
-  // ✅ 2) setar o span do SALDO DO MÊS (tira o "-" errado)
+  // ✅ 2) setar o span do SALDO DO MÊS (signed e class pos/neg)
   if($("saldoMes")){
     $("saldoMes").textContent = secondsToHHMMsigned(saldoMesSeg);
     $("saldoMes").className = (saldoMesSeg >= 0 ? "pos" : "neg");
@@ -341,15 +321,6 @@ async function carregarMes(){
   }
 }
 
-// ✅ refreshToggle usa a semana selecionada
-async function refreshToggle(){
-  const semana = semanaSelecionadaISO || mondayOfWeekISO(nowDate());
-  const val = await getEscalaSemana(currentFuncionario.emp_id, semana);
-  if($("btnToggleSabado")){
-    $("btnToggleSabado").textContent = `Trabalhar sábado: ${val ? "SIM" : "NÃO"}`;
-  }
-}
-
 (async ()=>{
   const ok = await requireLogin();
   if(!ok) return;
@@ -368,38 +339,5 @@ async function refreshToggle(){
     $("btnAplicarMes").onclick = ()=> carregarMes();
   }
 
-  semanaSelecionadaISO = mondayOfWeekISO(nowDate());
-  if($("semanaRef")){
-    $("semanaRef").value = semanaSelecionadaISO;
-  }
-  if($("semanaLabel")){
-    $("semanaLabel").textContent = `Início: ${semanaSelecionadaISO}`;
-  }
-
-  if($("btnAplicarSemana")){
-    $("btnAplicarSemana").onclick = async ()=>{
-      const v = $("semanaRef").value;
-      if(!v) return;
-      semanaSelecionadaISO = mondayOfWeekISO(v);
-      $("semanaRef").value = semanaSelecionadaISO;
-      $("semanaLabel").textContent = `Início: ${semanaSelecionadaISO}`;
-      await refreshToggle();
-    };
-  }
-
-  if($("btnToggleSabado")){
-    $("btnToggleSabado").onclick = async ()=>{
-      const semana = semanaSelecionadaISO || mondayOfWeekISO(nowDate());
-      const atual = await getEscalaSemana(currentFuncionario.emp_id, semana);
-      const ok = await setEscalaSemana(currentFuncionario.emp_id, semana, !atual);
-      if(ok){
-        escalaCache.clear();
-        await refreshToggle();
-        carregarMes();
-      }
-    };
-  }
-
-  await refreshToggle();
   carregarMes();
 })();
