@@ -78,6 +78,23 @@ async function requireLogin(){
   return true;
 }
 
+// ===== NOVO: mostrar botão admin se estiver na tabela admins =====
+async function showAdminIfNeeded(){
+  const { data: { user } } = await sb().auth.getUser();
+  if(!user) return;
+
+  const { data } = await sb()
+    .from("admins")
+    .select("user_id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if(data){
+    const b = document.getElementById("btnAdmin");
+    if(b) b.style.display = "inline-flex";
+  }
+}
+
 // ===== funcionario logado =====
 let currentFuncionario = null;
 
@@ -202,37 +219,39 @@ async function addRegistro(tipo){
       console.error(errSel);
       return showMsgIndex("Erro ao buscar registro do dia.", false);
     }
-// Se NÃO existe registro ainda, só pode registrar CHEGADA
-if (!existente) {
-  if (tipo !== "CHEGADA")
-    return showMsgIndex("Registre a chegada primeiro.", false);
-}
+
+    // Se NÃO existe registro ainda, só pode registrar CHEGADA
+    if (!existente) {
+      if (tipo !== "CHEGADA")
+        return showMsgIndex("Registre a chegada primeiro.", false);
+    }
+
     if (existente) {
 
-  if (tipo === "CHEGADA" && existente.chegada)
-    return showMsgIndex("Chegada já registrada.", false);
+      if (tipo === "CHEGADA" && existente.chegada)
+        return showMsgIndex("Chegada já registrada.", false);
 
-  if (tipo === "INI_INTERVALO" && !existente.chegada)
-    return showMsgIndex("Registre a chegada primeiro.", false);
+      if (tipo === "INI_INTERVALO" && !existente.chegada)
+        return showMsgIndex("Registre a chegada primeiro.", false);
 
-  if (tipo === "INI_INTERVALO" && existente.ini_intervalo)
-    return showMsgIndex("Início de intervalo já registrado.", false);
+      if (tipo === "INI_INTERVALO" && existente.ini_intervalo)
+        return showMsgIndex("Início de intervalo já registrado.", false);
 
-  if (tipo === "INI_INTERVALO" && existente.saida)
-    return showMsgIndex("Já foi registrada a saída.", false);
+      if (tipo === "INI_INTERVALO" && existente.saida)
+        return showMsgIndex("Já foi registrada a saída.", false);
 
-  if (tipo === "FIM_INTERVALO" && !existente.ini_intervalo)
-    return showMsgIndex("Inicie o intervalo primeiro.", false);
+      if (tipo === "FIM_INTERVALO" && !existente.ini_intervalo)
+        return showMsgIndex("Inicie o intervalo primeiro.", false);
 
-  if (tipo === "FIM_INTERVALO" && existente.fim_intervalo)
-    return showMsgIndex("Fim de intervalo já registrado.", false);
+      if (tipo === "FIM_INTERVALO" && existente.fim_intervalo)
+        return showMsgIndex("Fim de intervalo já registrado.", false);
 
-  if (tipo === "SAIDA" && !existente.chegada)
-    return showMsgIndex("Registre a chegada primeiro.", false);
+      if (tipo === "SAIDA" && !existente.chegada)
+        return showMsgIndex("Registre a chegada primeiro.", false);
 
-  if (tipo === "SAIDA" && existente.saida)
-    return showMsgIndex("Saída já registrada.", false);
-}
+      if (tipo === "SAIDA" && existente.saida)
+        return showMsgIndex("Saída já registrada.", false);
+    }
 
     let result;
     if(existente){
@@ -266,6 +285,8 @@ document.addEventListener("click", (e)=>{
   const ok = await requireLogin();
   if(!ok) return;
 
+  showAdminIfNeeded();
+
   currentFuncionario = await getFuncionarioLogado();
   if(!currentFuncionario){
     alert("Usuário não vinculado a funcionário (funcionarios.user_id).");
@@ -275,6 +296,7 @@ document.addEventListener("click", (e)=>{
   renderToday();
   setInterval(renderToday, 20000);
 })();
+
 const btnLogout = $("btnLogout");
 
 if(btnLogout){
