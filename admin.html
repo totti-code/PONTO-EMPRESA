@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin | Martree</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="top">
+    <div class="topInner">
+      <div class="brand">
+        <img src="assets/logo.png" class="logo" />
+        <div class="topTitle">
+          <h1>Painel Admin</h1>
+          <p class="empresa">Martree</p>
+        </div>
+      </div>
+
+      <div style="display:flex; gap:10px;">
+        <button onclick="window.location.href='index.html'" class="btn ghost">Voltar</button>
+        <button id="btnLogout" class="btn ghost">Sair</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap compact">
+    <section class="card">
+      <h2>Admin</h2>
+      <p class="muted">Se você está vendo isso, você é admin ✅</p>
+      <!-- aqui depois você coloca ações: gerenciar escala, ver todos os pontos etc -->
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    const supabaseUrl = "https://gnmwpudkvhsmtxmypuyt.supabase.co";
+    const supabaseKey = "SUA_PUBLISHABLE_KEY";
+    window.supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
+  </script>
+
+  <script src="admin.js?v=1"></script>
+</body>
+</html>
