@@ -216,6 +216,129 @@ async function setupEscalaAdmin(){
   await refreshEscalaUI();
 }
 
+// ===== 3) admin.js — lógica do resumo =====
+
+// 3.1) Helpers
+function secondsToHHMM(sec){
+  sec = Math.max(0, sec || 0);
+  const h = Math.floor(sec/3600);
+  const m = Math.floor((sec%3600)/60);
+  return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
+}
+function secondsToHHMMsigned(sec){
+  const sign = (sec || 0) >= 0 ? "+" : "-";
+  return sign + secondsToHHMM(Math.abs(sec || 0));
+}
+
+function showResMsg(text, ok){
+  const el = document.getElementById("admResMsg");
+  if(!el) return;
+  el.style.color = ok ? "#22c55e" : "#ef4444";
+  el.textContent = text;
+  setTimeout(()=> (el.textContent=""), 2500);
+}
+
+// 3.2) Carregar funcionários no select do resumo
+async function loadFuncionariosResumoSelect(){
+  const sel = document.getElementById("admResEmp");
+  if(!sel) return;
+
+  const { data, error } = await sb()
+    .from("funcionarios")
+    .select("emp_id, nome")
+    .order("emp_id", { ascending: true });
+
+  if(error){
+    console.error(error);
+    sel.innerHTML = `<option value="">Erro ao carregar</option>`;
+    return;
+  }
+
+  sel.innerHTML = `<option value="">Selecione...</option>` + (data || []).map(f =>
+    `<option value="${f.emp_id}">#${f.emp_id} ${f.nome || ""}</option>`
+  ).join("");
+}
+
+// 3.3) Buscar resumo do mês e calcular acumulado
+async function getResumoMes(empId, ano, mes){
+  const { data, error } = await sb()
+    .from("resumo_mes")
+    .select("dias,total_segundos,saldo_pos_seg,saldo_neg_seg,saldo_mes_seg")
+    .eq("emp_id", empId)
+    .eq("ano", ano)
+    .eq("mes", mes)
+    .maybeSingle();
+
+  if(error){
+    console.error(error);
+    return null;
+  }
+  return data;
+}
+
+async function getAcumuladoAteMes(empId, ano, mes){
+  // soma todos os saldos mensais anteriores + mês atual
+  const { data, error } = await sb()
+    .from("resumo_mes")
+    .select("saldo_mes_seg, ano, mes")
+    .eq("emp_id", empId)
+    .or(`ano.lt.${ano},and(ano.eq.${ano},mes.lte.${mes})`);
+
+  if(error){
+    console.error(error);
+    return 0;
+  }
+
+  let total = 0;
+  for(const r of (data || [])){
+    total += (r.saldo_mes_seg || 0);
+  }
+  return total;
+}
+
+async function carregarResumoAdmin(){
+  const empId = document.getElementById("admResEmp")?.value;
+  const ym = document.getElementById("admResMes")?.value; // "YYYY-MM"
+
+  if(!empId || !ym){
+    return showResMsg("Selecione funcionário e mês.", false);
+  }
+
+  const [ano, mes] = ym.split("-").map(Number);
+
+  // resumo do mês (se não existir, mostra zeros)
+  const resumo = await getResumoMes(empId, ano, mes);
+
+  const dias = resumo?.dias ?? 0;
+  const totalSeg = resumo?.total_segundos ?? 0;
+  const pos = resumo?.saldo_pos_seg ?? 0;
+  const neg = resumo?.saldo_neg_seg ?? 0;
+  const saldoMes = resumo?.saldo_mes_seg ?? 0;
+
+  document.getElementById("admDias").textContent = dias;
+  document.getElementById("admTotalHoras").textContent = secondsToHHMM(totalSeg);
+
+  const elPos = document.getElementById("admSaldoPos");
+  const elNeg = document.getElementById("admSaldoNeg");
+  const elMes = document.getElementById("admSaldoMes");
+  const elAc = document.getElementById("admSaldoAcum");
+
+  elPos.textContent = secondsToHHMM(pos);
+  elNeg.textContent = secondsToHHMM(neg);
+  elMes.textContent = secondsToHHMMsigned(saldoMes);
+
+  elPos.className = "pos";
+  elNeg.className = "neg";
+  elMes.className = (saldoMes >= 0 ? "pos" : "neg");
+
+  // acumulado até o mês selecionado
+  const acumulado = await getAcumuladoAteMes(empId, ano, mes);
+  elAc.textContent = secondsToHHMMsigned(acumulado);
+  elAc.className = (acumulado >= 0 ? "pos" : "neg");
+
+  showResMsg("Resumo carregado.", true);
+}
+
 // ===== init =====
 (async ()=>{
   const ok = await requireAdmin();
@@ -223,6 +346,20 @@ async function setupEscalaAdmin(){
 
   // ✅ inicializa card de escala
   await setupEscalaAdmin();
+
+  // ✅ inicializa card de resumo
+  await loadFuncionariosResumoSelect();
+
+  const d = new Date();
+  const admResMes = document.getElementById("admResMes");
+  if(admResMes){
+    admResMes.value = `${d.getFullYear()}-${pad(d.getMonth()+1)}`;
+  }
+
+  const btnCarregar = document.getElementById("admResCarregar");
+  if(btnCarregar){
+    btnCarregar.onclick = ()=> carregarResumoAdmin();
+  }
 
   // Logout
   const btnLogout = $("btnLogout");
