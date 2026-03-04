@@ -58,7 +58,7 @@ function monthRangeFromInput(){
 
 function timeToSeconds(t){
   if(!t) return 0;
-  const parts = t.split(":").map(Number);
+  const parts = String(t).split(":").map(Number);
   return parts[0]*3600 + parts[1]*60 + (parts[2]||0);
 }
 
@@ -74,19 +74,23 @@ function secondsToHHMMsigned(sec){
   return sign + secondsToHHMM(abs);
 }
 
-function calcHoras(r){
-  if(!r.chegada || !r.saida) return 0;
-  let total = timeToSeconds(r.saida) - timeToSeconds(r.chegada);
-  if(r.ini_intervalo && r.fim_intervalo){
-    total -= timeToSeconds(r.fim_intervalo) - timeToSeconds(r.ini_intervalo);
-  }
-  return total > 0 ? total : 0;
+function diffSeconds(a, b){
+  if(!a || !b) return null;
+  const da = timeToSeconds(a);
+  const db = timeToSeconds(b);
+  if(!Number.isFinite(da) || !Number.isFinite(db)) return null;
+  const d = db - da;
+  if(d <= 0) return null;
+  return d;
 }
 
-// ====== METAS ======
-const META_NORMAL = 9*3600;             // 09:00 (semana normal seg-sex)
-const META_SEMANA_SAB = 7*3600 + 20*60; // 07:20 (seg-sex na semana com sábado)
-const META_SABADO = 7*3600 + 20*60;     // 07:20 (sábado na semana com sábado)
+// ====== CONSTANTES (TOPO) ======
+const META_9H   = 9*3600;            // 09:00
+const META_8H   = 8*3600;            // 08:00 (terça na semana normal)
+const META_7H20 = 7*3600 + 20*60;    // 07:20 (semana do sábado)
+
+const INT_1H = 1*3600;               // 01:00
+const INT_2H = 2*3600;               // 02:00
 
 // ====== FUNÇÕES DE SEMANA (SEGUNDA-FEIRA) ======
 function isoToDate(iso){
@@ -152,7 +156,7 @@ async function trabalhaSabadoNaSemana(empId, dataISO){
   return val;
 }
 
-// agora metaDoDia vira async
+// ====== META DO DIA BASEADA NA SEMANA E DIA ======
 async function metaDoDia(empId, dataISO){
   const d = isoToDate(dataISO).getDay(); // 0 dom .. 6 sáb
   if(d === 0) return 0;
@@ -160,9 +164,30 @@ async function metaDoDia(empId, dataISO){
   const semanaSab = await trabalhaSabadoNaSemana(empId, dataISO);
 
   if(semanaSab){
-    return (d === 6) ? META_SABADO : META_SEMANA_SAB;
+    // seg-sab = 07:20
+    return (d >= 1 && d <= 6) ? META_7H20 : 0;
   } else {
-    return (d === 6) ? 0 : META_NORMAL;
+    // semana normal: terça=08:00, seg/qua/qui/sex=09:00, sábado=0
+    if(d === 6) return 0;
+    if(d === 2) return META_8H;     // terça
+    return META_9H;                 // seg/qua/qui/sex
+  }
+}
+
+// ====== INTERVALO PADRÃO DO DIA (QUANDO NÃO TEM INI/FIM) ======
+async function intervaloPadraoDoDia(empId, dataISO){
+  const d = isoToDate(dataISO).getDay(); // 0 dom .. 6 sáb
+  if(d === 0) return 0;
+
+  const semanaSab = await trabalhaSabadoNaSemana(empId, dataISO);
+
+  if(semanaSab){
+    // seg-sab sempre 2h
+    return (d >= 1 && d <= 6) ? INT_2H : 0;
+  } else {
+    // semana normal: terça 2h, outros dias úteis 1h, sábado 0
+    if(d === 6) return 0;
+    return (d === 2) ? INT_2H : INT_1H;
   }
 }
 
@@ -215,12 +240,26 @@ async function carregarMes(){
   tbody.innerHTML = "";
 
   for (const r of data) {
-    const horas = calcHoras(r);
+    const total = diffSeconds(r.chegada, r.saida);
+    if(total == null) continue;
+
+    let intervalo = 0;
+
+    // Se registrou intervalo, usa real
+    if(r.ini_intervalo && r.fim_intervalo){
+      intervalo = diffSeconds(r.ini_intervalo, r.fim_intervalo) || 0;
+    } else {
+      // senão, usa padrão
+      intervalo = await intervaloPadraoDoDia(currentFuncionario.emp_id, r.data);
+    }
+
+    const horas = Math.max(0, total - intervalo);
     if(horas > 0) dias++;
 
     totalSegundos += horas;
 
     const meta = await metaDoDia(currentFuncionario.emp_id, r.data);
+
     if(horas > meta) totalExtras += (horas - meta);
 
     const saldoDia = horas - meta;
