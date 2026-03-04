@@ -65,44 +65,31 @@
       <p id="admMsg" class="msg"></p>
     </section>
 
-    <!-- ✅ NOVO CARD: Resumo por funcionário/mês -->
+    <!-- ✅ NOVO CARD: Exportar CSV do mês -->
     <section class="card">
-      <h2>Resumo por funcionário</h2>
+      <h2>Exportar CSV do mês</h2>
 
       <div class="row" style="grid-template-columns:1fr 1fr auto; align-items:end;">
         <div>
           <label>Funcionário</label>
-          <select id="admResEmp" style="width:100%; padding:12px; border-radius:14px; border:1px solid var(--line); background:rgba(255,255,255,.04); color:var(--text);">
+          <select id="csvEmp" style="width:100%; padding:12px; border-radius:14px; border:1px solid var(--line); background:rgba(255,255,255,.04); color:var(--text);">
             <option value="">Carregando...</option>
           </select>
         </div>
 
         <div>
           <label>Mês</label>
-          <input id="admResMes" type="month" />
+          <input id="csvMes" type="month" />
         </div>
 
-        <button id="admResCarregar" class="btn ghost" type="button">Carregar</button>
+        <button id="btnCsv" class="btn" type="button">Baixar CSV</button>
       </div>
 
-      <div class="row" style="grid-template-columns:1fr 1fr; gap:12px; margin-top:12px;">
-        <div class="card" style="margin:0;">
-          <h2 style="font-size:16px; margin-bottom:10px;">Mês selecionado</h2>
-          <p><strong>Dias trabalhados:</strong> <span id="admDias">-</span></p>
-          <p><strong>Total de horas:</strong> <span id="admTotalHoras">-</span></p>
-          <p><strong>Saldo positivo:</strong> <span id="admSaldoPos">-</span></p>
-          <p><strong>Saldo negativo:</strong> <span id="admSaldoNeg">-</span></p>
-          <p><strong>Saldo do mês:</strong> <span id="admSaldoMes">-</span></p>
-        </div>
+      <p class="muted small" style="margin-top:10px;">
+        Gera um CSV detalhado com: Data, Chegada, Início/Fim intervalo, Saída, Horas, Meta, Saldo do dia e Acumulado.
+      </p>
 
-        <div class="card" style="margin:0;">
-          <h2 style="font-size:16px; margin-bottom:10px;">Banco de horas</h2>
-          <p><strong>Acumulado até o mês:</strong> <span id="admSaldoAcum">-</span></p>
-          <p class="muted small" style="margin:8px 0 0;">(Soma de todos os saldos mensais anteriores + o mês atual)</p>
-        </div>
-      </div>
-
-      <p id="admResMsg" class="msg"></p>
+      <p id="csvMsg" class="msg"></p>
     </section>
 
   </main>
