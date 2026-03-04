@@ -8,16 +8,23 @@
     if(btn) btn.textContent = isPink ? "Tema padrão" : "Tema rosa";
   }
 
-  document.addEventListener("DOMContentLoaded", () => {
+  function init(){
     const saved = localStorage.getItem("theme") || "default";
     setTheme(saved);
 
     const btn = document.getElementById("btnTheme");
     if(btn){
       btn.addEventListener("click", () => {
-        const current = document.body.classList.contains("theme-pink") ? "pink" : "default";
-        setTheme(current === "pink" ? "default" : "pink");
+        const isPink = document.body.classList.contains("theme-pink");
+        setTheme(isPink ? "default" : "pink");
       });
     }
-  });
+  }
+
+  // ✅ funciona tanto antes quanto depois do carregamento da página
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
 })();
