@@ -237,29 +237,3 @@ tbody tr:hover{ background: rgba(34,197,94,.06); }
 }
 .pos{ color: #22c55e; font-weight: 800; }
 .neg{ color: #ef4444; font-weight: 800; }
-
-/* ===== TEMA ROSA (não mexe no tema padrão) ===== */
-body.theme-pink{
-  --bg:#120815;
-  --card:#1a0b1f;
-  --text:#ffeaf7;
-  --muted:#f3b7d8;
-  --line:rgba(255,255,255,.10);
-
-  --ok:#ff4da6;        /* botões principais */
-  --danger:#ff3b5c;
-  --accent:#ff7ac8;    /* “Martree” */
-}
-
-/* fundo do tema rosa */
-body.theme-pink{
-  background:
-    radial-gradient(900px 500px at 20% 0%, rgba(255,77,166,.18), transparent 55%),
-    radial-gradient(900px 500px at 90% 10%, rgba(255,122,200,.14), transparent 55%),
-    var(--bg);
-}
-
-/* foco combinando */
-body.theme-pink :where(a,button,input):focus-visible{
-  outline: 3px solid rgba(255,77,166,.55);
-}
