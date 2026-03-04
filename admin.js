@@ -362,6 +362,213 @@ async function loadFuncionariosCsvSelect(){
     ).join("");
 }
 
+// ===== CSV: geração e download =====
+
+function lastDayOfMonthISO(Y, M){
+  const last = new Date(Y, M, 0);
+  return `${Y}-${pad(M)}-${pad(last.getDate())}`;
+}
+
+function hhmm(t){
+  if(!t) return "";
+  const s = String(t).split("+")[0];
+  const parts = s.split(":");
+  if(parts.length < 2) return s;
+  return `${parts[0].padStart(2,"0")}:${parts[1].padStart(2,"0")}`;
+}
+
+function timeToSeconds(t){
+  if(!t) return null;
+  const parts = String(t).split("+")[0].split(":").map(Number);
+  if(parts.length < 2) return null;
+  const [hh, mm, ss = 0] = parts;
+  return hh*3600 + mm*60 + ss;
+}
+
+function diffSeconds(start, end){
+  const s = timeToSeconds(start);
+  const e = timeToSeconds(end);
+  if(s == null || e == null) return null;
+  let d = e - s;
+  if(d < 0) d += 86400;
+  return d;
+}
+
+// (mantém helpers do CSV; não interfere com o resumo)
+function downloadCSV(filename, csvText){
+  const blob = new Blob([csvText], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function csvEscape(v){
+  const s = String(v ?? "");
+  if(/[",\n;]/.test(s)) return `"${s.replace(/"/g,'""')}"`;
+  return s;
+}
+
+function showCsvMsg(text, ok){
+  const el = document.getElementById("csvMsg");
+  if(!el) return;
+  el.style.color = ok ? "#22c55e" : "#ef4444";
+  el.textContent = text;
+  setTimeout(()=> (el.textContent=""), 3000);
+}
+
+// ===== regras de meta / intervalo (iguais ao mes.js) =====
+const META_9H = 9*3600;
+const META_8H = 8*3600;
+const META_7H20 = 7*3600 + 20*60;
+
+const INT_1H = 1*3600;
+const INT_2H = 2*3600;
+
+async function trabalhaSabadoNaSemana(empId, dataISO){
+  const dt = isoToDate(dataISO);
+  const day = dt.getDay();
+  const diffToMon = (day === 0) ? 6 : (day - 1);
+  dt.setDate(dt.getDate() - diffToMon);
+  const semanaInicio = `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}`;
+
+  const { data, error } = await sb()
+    .from("escala_semanal")
+    .select("trabalha_sabado")
+    .eq("emp_id", empId)
+    .eq("semana_inicio", semanaInicio)
+    .maybeSingle();
+
+  if(error){
+    console.error(error);
+    return false;
+  }
+  return !!data?.trabalha_sabado;
+}
+
+async function metaDoDia(empId, dataISO){
+  const d = isoToDate(dataISO).getDay(); // 0 dom .. 6 sáb
+  if(d === 0) return 0;
+
+  const semanaSab = await trabalhaSabadoNaSemana(empId, dataISO);
+
+  if(semanaSab){
+    return (d >= 1 && d <= 6) ? META_7H20 : 0;
+  } else {
+    if(d === 6) return 0;
+    if(d === 2) return META_8H; // terça
+    return META_9H;
+  }
+}
+
+async function intervaloPadraoDoDia(empId, dataISO){
+  const d = isoToDate(dataISO).getDay();
+  if(d === 0) return 0;
+
+  const semanaSab = await trabalhaSabadoNaSemana(empId, dataISO);
+
+  if(semanaSab){
+    return (d >= 1 && d <= 6) ? INT_2H : 0;
+  } else {
+    if(d === 6) return 0;
+    return (d === 2) ? INT_2H : INT_1H;
+  }
+}
+
+// ===== FUNÇÃO PRINCIPAL =====
+async function baixarCsvMesDetalhado(){
+  const empId = document.getElementById("csvEmp")?.value;
+  const ym = document.getElementById("csvMes")?.value; // YYYY-MM
+  if(!empId || !ym) return showCsvMsg("Selecione funcionário e mês.", false);
+
+  const [ano, mes] = ym.split("-").map(Number);
+  const start = `${ano}-${pad(mes)}-01`;
+  const end = lastDayOfMonthISO(ano, mes);
+
+  const { data: func } = await sb()
+    .from("funcionarios")
+    .select("nome")
+    .eq("emp_id", empId)
+    .maybeSingle();
+
+  const { data: rows, error } = await sb()
+    .from("pontos")
+    .select("data, chegada, ini_intervalo, fim_intervalo, saida")
+    .eq("emp_id", empId)
+    .gte("data", start)
+    .lte("data", end)
+    .order("data", { ascending: true });
+
+  if(error){
+    console.error(error);
+    return showCsvMsg("Erro ao carregar pontos.", false);
+  }
+
+  let saldoAcum = 0;
+  let totalSeg = 0;
+  let dias = 0;
+  let pos = 0;
+  let neg = 0;
+
+  const header = ["data","chegada","ini_intervalo","fim_intervalo","saida","horas","meta","saldo_dia","acumulado"];
+  const lines = [header.join(";")];
+
+  for(const r of (rows || [])){
+    if(!r.chegada || !r.saida) continue;
+
+    const total = diffSeconds(r.chegada, r.saida);
+    if(total == null) continue;
+
+    let intervalo = 0;
+    if(r.ini_intervalo && r.fim_intervalo){
+      intervalo = diffSeconds(r.ini_intervalo, r.fim_intervalo) || 0;
+    } else {
+      intervalo = await intervaloPadraoDoDia(empId, r.data);
+    }
+
+    const horasSeg = Math.max(0, total - intervalo);
+    const metaSeg = await metaDoDia(empId, r.data);
+    const saldoDia = horasSeg - metaSeg;
+
+    saldoAcum += saldoDia;
+    totalSeg += horasSeg;
+    dias++;
+
+    if(saldoDia >= 0) pos += saldoDia;
+    else neg += Math.abs(saldoDia);
+
+    lines.push([
+      r.data,
+      hhmm(r.chegada),
+      hhmm(r.ini_intervalo),
+      hhmm(r.fim_intervalo),
+      hhmm(r.saida),
+      secondsToHHMM(horasSeg),
+      secondsToHHMM(metaSeg),
+      secondsToHHMMsigned(saldoDia),
+      secondsToHHMMsigned(saldoAcum),
+    ].map(csvEscape).join(";"));
+  }
+
+  lines.push("");
+  lines.push(["RESUMO","","","","","","","",""].join(";"));
+  lines.push(["dias", dias,"","","","","","",""].join(";"));
+  lines.push(["total_horas", secondsToHHMM(totalSeg),"","","","","","",""].join(";"));
+  lines.push(["saldo_pos", secondsToHHMM(pos),"","","","","","",""].join(";"));
+  lines.push(["saldo_neg", secondsToHHMM(neg),"","","","","","",""].join(";"));
+  lines.push(["saldo_mes", secondsToHHMMsigned(saldoAcum),"","","","","","",""].join(";"));
+
+  const nome = func?.nome ? func.nome.replace(/\s+/g,"_") : `emp_${empId}`;
+  const filename = `ponto_${nome}_${ano}-${pad(mes)}.csv`;
+
+  downloadCSV(filename, lines.join("\n"));
+  showCsvMsg("CSV gerado!", true);
+}
+
 // ===== init =====
 (async ()=>{
   const ok = await requireAdmin();
