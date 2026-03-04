@@ -339,6 +339,29 @@ async function carregarResumoAdmin(){
   showResMsg("Resumo carregado.", true);
 }
 
+// ===== CSV: carregar select =====
+async function loadFuncionariosCsvSelect(){
+  const sel = document.getElementById("csvEmp");
+  if(!sel) return;
+
+  const { data, error } = await sb()
+    .from("funcionarios")
+    .select("emp_id, nome")
+    .order("emp_id", { ascending: true });
+
+  if(error){
+    console.error(error);
+    sel.innerHTML = `<option value="">Erro ao carregar</option>`;
+    return;
+  }
+
+  sel.innerHTML =
+    `<option value="">Selecione...</option>` +
+    (data || []).map(f =>
+      `<option value="${f.emp_id}">#${f.emp_id} ${f.nome || ""}</option>`
+    ).join("");
+}
+
 // ===== init =====
 (async ()=>{
   const ok = await requireAdmin();
@@ -346,6 +369,20 @@ async function carregarResumoAdmin(){
 
   // ✅ inicializa card de escala
   await setupEscalaAdmin();
+
+  // ✅ CSV
+  await loadFuncionariosCsvSelect();
+
+  const dCsv = new Date();
+  const csvMesEl = document.getElementById("csvMes");
+  if(csvMesEl){
+    csvMesEl.value = `${dCsv.getFullYear()}-${pad(dCsv.getMonth()+1)}`;
+  }
+
+  const btnCsv = document.getElementById("btnCsv");
+  if(btnCsv){
+    btnCsv.onclick = ()=> baixarCsvMesDetalhado();
+  }
 
   // ✅ inicializa card de resumo
   await loadFuncionariosResumoSelect();
