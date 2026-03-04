@@ -1,4 +1,8 @@
-// mes.js (COMPLETO) — saldo do mês salvo como saldo_mes_seg + acumulado somando meses anteriores
+// mes.js (COMPLETO) — com saldoMes no resumo + acumulado real (meses anteriores)
+// Ajustes pedidos:
+// 1) saldoMesSeg = saldoAcumulado (saldo do mês)
+// 2) setar $("saldoMes") com signed e class pos/neg
+// 3) acumulado profissional: soma meses anteriores + saldoMesSeg
 
 const $ = (id) => document.getElementById(id);
 function sb(){ return window.supabaseClient; }
@@ -14,7 +18,7 @@ async function requireLogin(){
 
 let currentFuncionario = null;
 
-// ✅ semana selecionada (segunda-feira ISO)
+// ✅ NOVO: semana selecionada (segunda-feira ISO)
 let semanaSelecionadaISO = null;
 
 async function getFuncionario(){
@@ -34,7 +38,7 @@ function nowDate(){
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 }
 
-// ✅ calcula o último dia real do mês (corrige fevereiro etc.)
+// ✅ NOVO: calcula o último dia real do mês (corrige fevereiro etc.)
 function lastDayOfMonthISO(Y, M){
   // M = 1..12
   const last = new Date(Y, M, 0); // dia 0 do mês seguinte = último dia do mês atual
@@ -86,7 +90,7 @@ function diffSeconds(a, b){
   return d;
 }
 
-// ====== CONSTANTES ======
+// ====== CONSTANTES (TOPO) ======
 const META_9H   = 9*3600;            // 09:00
 const META_8H   = 8*3600;            // 08:00 (terça na semana normal)
 const META_7H20 = 7*3600 + 20*60;    // 07:20 (semana do sábado)
@@ -193,7 +197,7 @@ async function intervaloPadraoDoDia(empId, dataISO){
   }
 }
 
-// ✅ NOVO: acumulado “de verdade” = soma de todos os saldos mensais anteriores ao mês selecionado
+// ✅ acumulado “de verdade” = soma dos saldos mensais anteriores ao mês selecionado
 async function getAcumuladoAteMesAnterior(empId, ano, mes){
   const { data, error } = await sb()
     .from("resumo_mes")
@@ -233,8 +237,7 @@ async function carregarMes(){
   let totalExtras = 0; // (mantido, caso você use em outro lugar)
   let dias = 0;
 
-  // 🔁 isso aqui é o SALDO DO MÊS (dia a dia)
-  let saldoMes = 0;
+  let saldoAcumulado = 0;        // ✅ aqui é o SALDO DO MÊS (soma dia a dia)
   let totalSaldoPositivo = 0;
   let totalSaldoNegativo = 0;
 
@@ -265,16 +268,10 @@ async function carregarMes(){
     if(horas > meta) totalExtras += (horas - meta);
 
     const saldoDia = horas - meta;
-
-    // ✅ saldo do mês
-    saldoMes += saldoDia;
+    saldoAcumulado += saldoDia;
 
     if(saldoDia >= 0) totalSaldoPositivo += saldoDia;
     else totalSaldoNegativo += (-saldoDia);
-
-    // ✅ acumulado real até o dia: (acumulado anterior + saldo do mês até agora)
-    // (aqui ainda não temos o acumuladoAnterior, então mostramos "acumulado do mês" na coluna)
-    const acumuladoNaTabela = saldoMes;
 
     tbody.innerHTML += `
       <tr>
@@ -286,32 +283,47 @@ async function carregarMes(){
         <td class="${saldoDia >= 0 ? "pos" : "neg"}">
           ${meta ? secondsToHHMMsigned(saldoDia) : "-"}
         </td>
-        <td class="${acumuladoNaTabela >= 0 ? "pos" : "neg"}">
-          ${meta ? secondsToHHMMsigned(acumuladoNaTabela) : "-"}
+        <td class="${saldoAcumulado >= 0 ? "pos" : "neg"}">
+          ${meta ? secondsToHHMMsigned(saldoAcumulado) : "-"}
         </td>
       </tr>
     `;
   }
 
-  // ✅ acumulado real (meses anteriores + saldo do mês)
-  const acumuladoAnterior = await getAcumuladoAteMesAnterior(currentFuncionario.emp_id, ano, mes);
-  const saldoAcumuladoReal = acumuladoAnterior + saldoMes;
+  // =========================
+  // ✅ 1) SALDO DO MÊS
+  // (depois do loop, antes do resumo)
+  const saldoMesSeg = saldoAcumulado; // ✅ saldo do mês (pode ser negativo)
+  // =========================
 
+  // ✅ Resumo
   $("dias").textContent = dias;
   $("totalHoras").textContent = secondsToHHMM(totalSegundos);
 
   $("saldoPos").textContent = secondsToHHMM(totalSaldoPositivo);
   $("saldoNeg").textContent = secondsToHHMM(totalSaldoNegativo);
 
+  // =========================
+  // ✅ 2) setar o span do SALDO DO MÊS (tira o "-" errado)
+  if($("saldoMes")){
+    $("saldoMes").textContent = secondsToHHMMsigned(saldoMesSeg);
+    $("saldoMes").className = (saldoMesSeg >= 0 ? "pos" : "neg");
+  }
+  // =========================
+
+  // =========================
+  // ✅ 3) ACUMULADO PROFISSIONAL (meses anteriores + saldo do mês)
+  const acumuladoAnterior = await getAcumuladoAteMesAnterior(currentFuncionario.emp_id, ano, mes);
+  const saldoAcumuladoReal = acumuladoAnterior + saldoMesSeg;
+
   $("saldoAcum").textContent = secondsToHHMMsigned(saldoAcumuladoReal);
+  $("saldoAcum").className = (saldoAcumuladoReal >= 0 ? "pos" : "neg");
+  // =========================
 
   $("saldoPos").className = "pos";
   $("saldoNeg").className = "neg";
-  $("saldoAcum").className = (saldoAcumuladoReal >= 0 ? "pos" : "neg");
 
-  // ✅ SALVA: saldo do mês (não o acumulado)
-  const saldoMesSeg = saldoMes;
-
+  // ✅ salva no banco: saldo do mês
   const { error: upsertErr } = await sb().from("resumo_mes").upsert([{
     emp_id: currentFuncionario.emp_id,
     ano,
@@ -320,7 +332,7 @@ async function carregarMes(){
     total_segundos: totalSegundos,
     saldo_pos_seg: totalSaldoPositivo,
     saldo_neg_seg: totalSaldoNegativo,
-    saldo_mes_seg: saldoMesSeg,          // ✅ novo: saldo do mês
+    saldo_mes_seg: saldoMesSeg, // ✅ saldo do mês
     updated_at: new Date().toISOString()
   }], { onConflict: "emp_id,ano,mes" });
 
@@ -391,5 +403,3 @@ async function refreshToggle(){
   await refreshToggle();
   carregarMes();
 })();
-$("saldoMes").textContent = secondsToHHMMsigned(saldoMesSeg);
-$("saldoMes").className = (saldoMesSeg >= 0 ? "pos" : "neg");
