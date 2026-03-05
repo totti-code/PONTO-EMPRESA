@@ -225,9 +225,12 @@ function secondsToHHMM(sec){
   const m = Math.floor((sec%3600)/60);
   return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
 }
+
+// ✅ AJUSTE: exportar saldo como TEXTO (Excel não vira fórmula)
 function secondsToHHMMsigned(sec){
   const sign = (sec || 0) >= 0 ? "+" : "-";
-  return sign + secondsToHHMM(Math.abs(sec || 0));
+  const txt = sign + secondsToHHMM(Math.abs(sec || 0));
+  return "'" + txt; // ✅ força Excel a tratar como TEXTO
 }
 
 function showResMsg(text, ok){
