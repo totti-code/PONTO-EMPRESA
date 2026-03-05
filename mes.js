@@ -161,23 +161,6 @@ async function metaDoDia(empId, dataISO){
   }
 }
 
-// ====== INTERVALO PADRÃO DO DIA (QUANDO NÃO TEM INI/FIM) ======
-async function intervaloPadraoDoDia(empId, dataISO){
-  const d = isoToDate(dataISO).getDay(); // 0 dom .. 6 sáb
-  if(d === 0) return 0;
-
-  const semanaSab = await trabalhaSabadoNaSemana(empId, dataISO);
-
-  if(semanaSab){
-    // seg-sab sempre 2h
-    return (d >= 1 && d <= 6) ? INT_2H : 0;
-  } else {
-    // semana normal: terça 2h, outros dias úteis 1h, sábado 0
-    if(d === 6) return 0;
-    return (d === 2) ? INT_2H : INT_1H;
-  }
-}
-
 // ✅ acumulado “de verdade” = soma dos saldos mensais anteriores ao mês selecionado
 async function getAcumuladoAteMesAnterior(empId, ano, mes){
   const { data, error } = await sb()
@@ -229,17 +212,20 @@ async function carregarMes(){
     const total = diffSeconds(r.chegada, r.saida);
     if(total == null) continue;
 
+    // =========================
+    // ✅ AJUSTE: só desconta se o usuário bateu intervalo (ini e fim)
     let intervalo = 0;
 
-    // Se registrou intervalo, usa real
     if(r.ini_intervalo && r.fim_intervalo){
       intervalo = diffSeconds(r.ini_intervalo, r.fim_intervalo) || 0;
-    } else {
-      // senão, usa padrão
-      intervalo = await intervaloPadraoDoDia(currentFuncionario.emp_id, r.data);
+
+      // segurança: nunca descontar mais do que trabalhou
+      intervalo = Math.min(intervalo, total);
     }
 
     const horas = Math.max(0, total - intervalo);
+    // =========================
+
     if(horas > 0) dias++;
 
     totalSegundos += horas;
