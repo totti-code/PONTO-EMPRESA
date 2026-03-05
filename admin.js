@@ -524,10 +524,11 @@ async function baixarCsvMesDetalhado(){
     if(total == null) continue;
 
     let intervalo = 0;
+
+    // ✅ só desconta se bateu intervalo
     if(r.ini_intervalo && r.fim_intervalo){
       intervalo = diffSeconds(r.ini_intervalo, r.fim_intervalo) || 0;
-    } else {
-      intervalo = await intervaloPadraoDoDia(empId, r.data);
+      intervalo = Math.min(intervalo, total);
     }
 
     const horasSeg = Math.max(0, total - intervalo);
